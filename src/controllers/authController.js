@@ -28,12 +28,43 @@ exports.signup = async (req, res) => {
     // - صاحب عمل / صاحب مشروع حر => أسئلة تبني صفحة الشركة (لا مهارات/خبرة)
     // - باحث عن عمل => الملف المهني (مجال/خبرة/مهارات)
     const isEmployerType = safeRole === 'Employer' || safeRole === 'FreelanceClient';
+
+    // بناء كائن الموقع الجديد
+    // عند استخدام multipart/form-data يصل companyLocation كنص JSON
+    let companyLocation;
+    let parsedCompanyLocation = req.body.companyLocation;
+    if (typeof parsedCompanyLocation === 'string') {
+      try {
+        parsedCompanyLocation = JSON.parse(parsedCompanyLocation);
+      } catch (e) {
+        parsedCompanyLocation = null;
+      }
+    }
+    if (parsedCompanyLocation && typeof parsedCompanyLocation === 'object') {
+      const loc = parsedCompanyLocation;
+      companyLocation = {
+        country: loc.country || '',
+        city: loc.city || '',
+        street: loc.street || '',
+        buildingNumber: loc.buildingNumber || '',
+        coordinates: {
+          type: 'Point',
+          coordinates: [
+            Number(loc.coordinates?.x) || Number(loc.coordinates?.coordinates?.[0]) || 0,
+            Number(loc.coordinates?.y) || Number(loc.coordinates?.coordinates?.[1]) || 0
+          ]
+        }
+      };
+    } else {
+      companyLocation = undefined;
+    }
+
     const employerProfile = isEmployerType
       ? {
           companyName: req.body.companyName,
           companyDescription: req.body.companyDescription,
           industry: req.body.companyIndustry,
-          companyLocation: req.body.companyLocation,
+          companyLocation,
           website: req.body.website,
           companySize: req.body.companySize,
           foundedYear: req.body.foundedYear ? Number(req.body.foundedYear) : undefined,
@@ -167,6 +198,27 @@ exports.getCurrentUser = async (req, res) => {
       ...formatUserResponse(user),
       posts: posts,
     };
+
+    // جلب بيانات الشركة إن كان المستخدم صاحب عمل/مشروع حر
+    const isEmployerType = user.role === 'Employer' || user.role === 'FreelanceClient';
+    if (isEmployerType) {
+      const Company = require('../models/Company');
+      const company = await Company.findOne({ owner: userId })
+        .select('name description industry location companySize foundedYear logo coverPhoto website socialLinks contactEmail isVerified status followersCount averageRating createdAt');
+      if (company) {
+        userProfile.company = company.toObject();
+      }
+    }
+
+    // جلب بيانات الشركة إن كان المستخدم موظف شركة
+    if (user.role === 'CompanyEmployee' && user.companyEmployeeProfile?.companyId) {
+      const Company = require('../models/Company');
+      const company = await Company.findById(user.companyEmployeeProfile.companyId)
+        .select('name description industry location logo coverPhoto status isVerified');
+      if (company) {
+        userProfile.company = company.toObject();
+      }
+    }
 
     res.status(200).json({
       success: true,

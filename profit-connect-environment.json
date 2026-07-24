@@ -1,0 +1,17 @@
+{
+  "name": "Profit Connect API",
+  "values": [
+    { "key": "base_url", "value": "http://localhost:5000", "type": "default" },
+    { "key": "token", "value": "", "type": "default" },
+    { "key": "userId", "value": "", "type": "default" },
+    { "key": "postId", "value": "", "type": "default" },
+    { "key": "companyId", "value": "", "type": "default" },
+    { "key": "projectId", "value": "", "type": "default" },
+    { "key": "proposalId", "value": "", "type": "default" },
+    { "key": "jobId", "value": "", "type": "default" },
+    { "key": "applicationId", "value": "", "type": "default" },
+    { "key": "commentId", "value": "", "type": "default" },
+    { "key": "conversationId", "value": "", "type": "default" },
+    { "key": "notificationId", "value": "", "type": "default" }
+  ]
+}

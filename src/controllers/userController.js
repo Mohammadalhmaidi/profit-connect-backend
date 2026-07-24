@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Post = require('../models/Post');
+const Company = require('../models/Company');
 const { buildAvatarUrl, deleteAvatarFile } = require('../utils/avatarStorage');
 const { formatUserResponse } = require('../utils/userResponse');
 const RScoreService = require('../services/rScoreService');
@@ -22,6 +23,16 @@ exports.getUserProfile = async (req, res) => {
     // إرفاق البوستات داخل كائن المستخدم كي يأخذها formatUserResponse
     const userWithPosts = user.toObject();
     userWithPosts.posts = posts;
+
+    // جلب بيانات الشركة إن كان المستخدم صاحب عمل/مشروع حر
+    const isEmployerType = user.role === 'Employer' || user.role === 'FreelanceClient';
+    if (isEmployerType) {
+      const company = await Company.findOne({ owner: user._id })
+        .select('name description industry location companySize foundedYear logo coverPhoto website socialLinks contactEmail isVerified status followersCount averageRating createdAt');
+      if (company) {
+        userWithPosts.company = company.toObject();
+      }
+    }
 
     res.status(200).json({
       success: true,

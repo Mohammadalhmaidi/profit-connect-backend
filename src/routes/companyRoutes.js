@@ -15,6 +15,13 @@ const {
   deleteRating
 } = require('../controllers/companyController');
 
+const {
+  addEmployee,
+  getCompanyEmployees,
+  removeEmployee,
+  updateEmployee
+} = require('../controllers/employeeController');
+
 const { protect, employerOnly } = require('../middleware/authMiddleware');
 const { uploadCompanyDocs } = require('../middleware/uploadMiddleware');
 
@@ -37,4 +44,14 @@ router.route('/:id/ratings')
   .post(addRating)
   .get(getCompanyRatings)
   .delete(deleteRating);
+
+// مسارات إدارة الموظفين
+router.route('/:id/employees')
+  .post(addEmployee)
+  .get(getCompanyEmployees);
+
+router.route('/:id/employees/:employeeId')
+  .put(updateEmployee)
+  .delete(removeEmployee);
+
 module.exports = router;

@@ -18,8 +18,38 @@ const companySchema = new mongoose.Schema(
       required: [true, 'مجال الشركة مطلوب (مثال: تكنولوجيا، صحة، إلخ)']
     },
     location: {
-      type: String,
-      required: [true, 'موقع الشركة أو مقرها الرئيسي مطلوب']
+      country: {
+        type: String,
+        required: [true, 'الدولة مطلوبة'],
+        trim: true
+      },
+      city: {
+        type: String,
+        required: [true, 'المدينة مطلوبة'],
+        trim: true
+      },
+      street: {
+        type: String,
+        trim: true,
+        default: ''
+      },
+      buildingNumber: {
+        type: String,
+        trim: true,
+        default: ''
+      },
+      coordinates: {
+        type: {
+          type: String,
+          enum: ['Point'],
+          default: 'Point'
+        },
+        coordinates: {
+          type: [Number],
+          default: [0, 0],
+          index: '2dsphere'
+        }
+      }
     },
     companySize: {
       type: String,
@@ -77,6 +107,33 @@ const companySchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+      }
+    ],
+    employees: [ // قائمة موظفي الشركة (يضافون بواسطة المالك/المدير)
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true
+        },
+        position: {
+          type: String,
+          trim: true,
+          default: ''
+        },
+        permissions: {
+          canPostJobs: { type: Boolean, default: true },
+          canManageApplicants: { type: Boolean, default: true },
+          canViewAnalytics: { type: Boolean, default: false }
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        addedAt: {
+          type: Date,
+          default: Date.now
+        }
       }
     ],
     followers: [

@@ -36,7 +36,14 @@ Private
 | `name` | `string` | نعم | اسم الشركة، ويجب أن يكون فريدًا |
 | `description` | `string` | نعم | وصف الشركة |
 | `industry` | `string` | نعم | مجال الشركة |
-| `location` | `string` | نعم | موقع الشركة |
+| `location` | `object` | نعم | موقع الشركة التفصيلي |
+| `location.country` | `string` | نعم | الدولة |
+| `location.city` | `string` | نعم | المدينة |
+| `location.street` | `string` | لا | اسم الشارع |
+| `location.buildingNumber` | `string` | لا | رقم البناء |
+| `location.coordinates` | `object` | لا | الإحداثيات الجغرافية |
+| `location.coordinates.x` | `number` | لا | خط الطول (longitude) |
+| `location.coordinates.y` | `number` | لا | خط العرض (latitude) |
 | `companySize` | `string` | لا | واحدة من: `1-10`, `11-50`, `51-200`, `201-500`, `501-1000`, `1000+` |
 | `foundedYear` | `number` | لا | سنة التأسيس |
 | `website` | `string` | لا | رابط الموقع |
@@ -64,7 +71,16 @@ Private
   "name": "MaxTec Group",
   "description": "شركة رائدة في تقديم الحلول البرمجية.",
   "industry": "تكنولوجيا المعلومات",
-  "location": "فلسطين",
+  "location": {
+    "country": "فلسطين",
+    "city": "رام الله",
+    "street": "شارع الملك عبدالله",
+    "buildingNumber": "15",
+    "coordinates": {
+      "x": 35.2034,
+      "y": 31.8996
+    }
+  },
   "companySize": "11-50",
   "foundedYear": 2020,
   "website": "https://maxtec.example.com",
@@ -88,7 +104,16 @@ Private
     "name": "MaxTec Group",
     "description": "شركة رائدة في تقديم الحلول البرمجية.",
     "industry": "تكنولوجيا المعلومات",
-    "location": "فلسطين",
+    "location": {
+      "country": "فلسطين",
+      "city": "رام الله",
+      "street": "شارع الملك عبدالله",
+      "buildingNumber": "15",
+      "coordinates": {
+        "type": "Point",
+        "coordinates": [35.2034, 31.8996]
+      }
+    },
     "companySize": "11-50",
     "foundedYear": 2020,
     "logo": "default-company-logo.png",
@@ -141,7 +166,16 @@ Private
       "name": "MaxTec Group",
       "description": "شركة رائدة في تقديم الحلول البرمجية.",
       "industry": "تكنولوجيا المعلومات",
-      "location": "فلسطين",
+      "location": {
+        "country": "فلسطين",
+        "city": "رام الله",
+        "street": "شارع الملك عبدالله",
+        "buildingNumber": "15",
+        "coordinates": {
+          "type": "Point",
+          "coordinates": [35.2034, 31.8996]
+        }
+      },
       "companySize": "11-50",
       "foundedYear": 2020,
       "logo": "default-company-logo.png",
@@ -205,7 +239,16 @@ Private
     "name": "MaxTec Group",
     "description": "شركة رائدة في تقديم الحلول البرمجية.",
     "industry": "تكنولوجيا المعلومات",
-    "location": "فلسطين",
+    "location": {
+      "country": "فلسطين",
+      "city": "رام الله",
+      "street": "شارع الملك عبدالله",
+      "buildingNumber": "15",
+      "coordinates": {
+        "type": "Point",
+        "coordinates": [35.2034, 31.8996]
+      }
+    },
     "companySize": "11-50",
     "foundedYear": 2020,
     "logo": "default-company-logo.png",
@@ -362,7 +405,16 @@ Private/Admin
       "name": "MaxTec Group",
       "description": "شركة رائدة في تقديم الحلول البرمجية.",
       "industry": "تكنولوجيا المعلومات",
-      "location": "فلسطين",
+      "location": {
+        "country": "فلسطين",
+        "city": "رام الله",
+        "street": "شارع الملك عبدالله",
+        "buildingNumber": "15",
+        "coordinates": {
+          "type": "Point",
+          "coordinates": [35.2034, 31.8996]
+        }
+      },
       "companySize": "11-50",
       "foundedYear": 2020,
       "logo": "default-company-logo.png",
@@ -477,7 +529,16 @@ Private/Admin
   "name": "string",
   "description": "string",
   "industry": "string",
-  "location": "string",
+  "location": {
+    "country": "string",
+    "city": "string",
+    "street": "string",
+    "buildingNumber": "string",
+    "coordinates": {
+      "type": "Point",
+      "coordinates": ["number", "number"]
+    }
+  },
   "companySize": "1-10 | 11-50 | 51-200 | 201-500 | 501-1000 | 1000+",
   "foundedYear": "number",
   "logo": "string",

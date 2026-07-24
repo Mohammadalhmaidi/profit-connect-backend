@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['Employer', 'JobSeeker', 'Admin', 'FreelanceClient'],
+      enum: ['Employer', 'JobSeeker', 'Admin', 'FreelanceClient', 'CompanyEmployee'],
       default: 'JobSeeker',
       required: [true, 'يرجى تحديد نوع الحساب (صاحب عمل أو باحث عن عمل)']
     },
@@ -83,13 +83,40 @@ const userSchema = new mongoose.Schema(
       companyName: { type: String, trim: true },
       companyDescription: { type: String, trim: true },
       industry: { type: String, trim: true },
-      companyLocation: { type: String, trim: true },
+      companyLocation: {
+        country: { type: String, trim: true },
+        city: { type: String, trim: true },
+        street: { type: String, trim: true },
+        buildingNumber: { type: String, trim: true },
+        coordinates: {
+          type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+          },
+          coordinates: {
+            type: [Number],
+            default: [0, 0]
+          }
+        }
+      },
       website: { type: String, trim: true },
       companySize: {
         type: String,
         enum: ['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+']
       },
       foundedYear: { type: Number }
+    },
+    // ملف موظف الشركة: يربط الموظف بشركته ويحدد صلاحياته
+    companyEmployeeProfile: {
+      companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+      position: { type: String, trim: true, default: '' },
+      permissions: {
+        canPostJobs: { type: Boolean, default: true },
+        canManageApplicants: { type: Boolean, default: true },
+        canViewAnalytics: { type: Boolean, default: false }
+      },
+      addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
     },
     isActive: {
       type: Boolean,
@@ -123,7 +150,7 @@ const userSchema = new mongoose.Schema(
       date: { type: Date, default: Date.now }
     }],
     notifications: [{
-      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'ai_detected', 'company_setup', 'company_status'], required: true },
+      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed'], required: true },
       projectName: { type: String },
       clientName: { type: String },
       projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },

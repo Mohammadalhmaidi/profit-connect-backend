@@ -87,3 +87,15 @@ exports.employerOnly = (req, res, next) => {
     });
   }
 };
+
+// حارس بوابة لموظفي الشركات (CompanyEmployee) فقط
+exports.companyEmployeeOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'CompanyEmployee') {
+    next();
+  } else {
+    return res.status(403).json({
+      success: false,
+      message: 'غير مصرح لك! هذا الإجراء مخصص لموظفي الشركات فقط'
+    });
+  }
+};

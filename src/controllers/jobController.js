@@ -5,7 +5,7 @@ const JobApplication = require('../models/Job');
 // ==========================================
 // @desc    نشر وظيفة جديدة
 // @route   POST /api/jobs
-// @access  Private (يجب أن يكون المستخدم مديراً في الشركة)
+// @access  Private (يجب أن يكون المستخدم مديراً في الشركة أو موظف بصلاحية النشر)
 // ==========================================
 exports.createJob = async (req, res) => {
   try {
@@ -20,11 +20,17 @@ exports.createJob = async (req, res) => {
       });
     }
 
-    // 2. التأكد من أن الشخص الذي ينشر الوظيفة هو أدمن (مدير) في هذه الشركة
-    if (!company.admins.includes(req.user._id)) {
+    // 2. التحقق من الصلاحيات: المالك، المدير، أو الموظف بصلاحية النشر
+    const isOwner = company.owner.toString() === req.user._id.toString();
+    const isAdmin = company.admins.some(a => a.toString() === req.user._id.toString());
+    const isEmployee = req.user.role === 'CompanyEmployee' && 
+                       req.user.companyEmployeeProfile?.companyId?.toString() === companyId.toString() &&
+                       req.user.companyEmployeeProfile?.permissions?.canPostJobs;
+
+    if (!isOwner && !isAdmin && !isEmployee) {
       return res.status(403).json({ 
         success: false, 
-        message: 'ليس لديك صلاحية النشر باسم هذه الشركة' 
+        message: 'ليس لديك صلاحية النشر بهذه الشركة' 
       });
     }
 
@@ -130,7 +136,7 @@ exports.applyForJob = async (req, res) => {
 // ==========================================
 // @desc    جلب قائمة المتقدمين لوظيفة معينة
 // @route   GET /api/jobs/:id/applicants
-// @access  Private (يجب أن يكون المستخدم مديراً في الشركة صاحبة الوظيفة)
+// @access  Private (يجب أن يكون المستخدم مديراً في الشركة أو موظف بصلاحية إدارة المتقدمين)
 // ==========================================
 exports.getJobApplicants = async (req, res) => {
   try {
@@ -143,8 +149,14 @@ exports.getJobApplicants = async (req, res) => {
       return res.status(404).json({ success: false, message: 'الوظيفة غير موجودة' });
     }
 
-    // 2. 🛡️ حماية: التأكد من أن المستخدم الحالي هو "مدير" في هذه الشركة
-    if (!job.company.admins.includes(req.user._id)) {
+    // 2. التحقق من الصلاحيات: المالك، المدير، أو الموظف بصلاحية إدارة المتقدمين
+    const isOwner = job.company.owner.toString() === req.user._id.toString();
+    const isAdmin = job.company.admins.some(a => a.toString() === req.user._id.toString());
+    const isEmployee = req.user.role === 'CompanyEmployee' && 
+                       req.user.companyEmployeeProfile?.companyId?.toString() === job.company._id.toString() &&
+                       req.user.companyEmployeeProfile?.permissions?.canManageApplicants;
+
+    if (!isOwner && !isAdmin && !isEmployee) {
       return res.status(403).json({ success: false, message: 'غير مصرح لك برؤية المتقدمين لهذه الوظيفة' });
     }
 
@@ -168,7 +180,7 @@ exports.getJobApplicants = async (req, res) => {
 // ==========================================
 // @desc    تحديث حالة طلب التوظيف (قبول / رفض / إلخ)
 // @route   PUT /api/jobs/applications/:applicationId/status
-// @access  Private (يجب أن يكون مديراً في الشركة)
+// @access  Private (يجب أن يكون مديراً في الشركة أو موظف بصلاحية إدارة المتقدمين)
 // ==========================================
 exports.updateApplicationStatus = async (req, res) => {
   try {
@@ -191,8 +203,14 @@ exports.updateApplicationStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'طلب التوظيف غير موجود' });
     }
 
-    // 3. 🛡️ حماية: التأكد من أن المستخدم هو مدير في الشركة صاحبة الوظيفة
-    if (!application.job.company.admins.includes(req.user._id)) {
+    // 3. التحقق من الصلاحيات: المالك، المدير، أو الموظف بصلاحية إدارة المتقدمين
+    const isOwner = application.job.company.owner.toString() === req.user._id.toString();
+    const isAdmin = application.job.company.admins.some(a => a.toString() === req.user._id.toString());
+    const isEmployee = req.user.role === 'CompanyEmployee' && 
+                       req.user.companyEmployeeProfile?.companyId?.toString() === application.job.company._id.toString() &&
+                       req.user.companyEmployeeProfile?.permissions?.canManageApplicants;
+
+    if (!isOwner && !isAdmin && !isEmployee) {
       return res.status(403).json({ success: false, message: 'غير مصرح لك بتعديل حالة هذا الطلب' });
     }
 

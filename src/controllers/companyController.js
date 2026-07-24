@@ -26,22 +26,60 @@ exports.createCompany = async (req, res) => {
       industry, 
       location, 
       companySize, 
-      foundedYear,     // 👈 جديد
+      foundedYear,
       website, 
-      socialLinks,     // 👈 جديد
-      contactEmail     // 👈 جديد
+      socialLinks,
+      contactEmail
     } = req.body;
 
     const companyName = name || ep.companyName;
     const companyDescription = description || ep.companyDescription;
     const companyIndustry = industry || ep.industry;
-    const companyLocation = location || ep.companyLocation;
     const companyWebsite = website || ep.website;
     const companySizeVal = companySize || ep.companySize;
     const companyFounded = foundedYear || ep.foundedYear;
 
     if (!companyName) {
       return res.status(400).json({ success: false, message: 'اسم الشركة مطلوب' });
+    }
+
+    // بناء كائن الموقع الجديد
+    // عند استخدام multipart/form-data (لرفع الملفات) يصل location كنص JSON
+    let parsedLocation = location;
+    if (typeof location === 'string') {
+      try {
+        parsedLocation = JSON.parse(location);
+      } catch (e) {
+        parsedLocation = null;
+      }
+    }
+
+    let companyLocation;
+    if (parsedLocation && typeof parsedLocation === 'object') {
+      companyLocation = {
+        country: parsedLocation.country || ep.companyLocation?.country || '',
+        city: parsedLocation.city || ep.companyLocation?.city || '',
+        street: parsedLocation.street || ep.companyLocation?.street || '',
+        buildingNumber: parsedLocation.buildingNumber || ep.companyLocation?.buildingNumber || '',
+        coordinates: {
+          type: 'Point',
+          coordinates: [
+            Number(parsedLocation.coordinates?.x) || Number(parsedLocation.coordinates?.coordinates?.[0]) || 0,
+            Number(parsedLocation.coordinates?.y) || Number(parsedLocation.coordinates?.coordinates?.[1]) || 0
+          ]
+        }
+      };
+    } else if (ep.companyLocation && typeof ep.companyLocation === 'object') {
+      companyLocation = ep.companyLocation;
+    } else {
+      companyLocation = { country: '', city: '', street: '', buildingNumber: '', coordinates: { type: 'Point', coordinates: [0, 0] } };
+    }
+
+    if (!companyLocation.country) {
+      return res.status(400).json({ success: false, message: 'الدولة مطلوبة' });
+    }
+    if (!companyLocation.city) {
+      return res.status(400).json({ success: false, message: 'المدينة مطلوبة' });
     }
 
     // 2. حفظ مسارات مستندات التحقق المرفوعة (سجل تجاري، رخصة، ...)
@@ -60,8 +98,8 @@ exports.createCompany = async (req, res) => {
       contactEmail,
       verificationDocs,
       owner: req.user._id,
-      admins: [req.user._id], // 💡 المالك هو أول مدير للشركة
-      status: 'Pending' // 👈 لا تظهر للعموم ولا توثّق إلا بعد موافقة الإدارة
+      admins: [req.user._id],
+      status: 'Pending'
     });
 
     res.status(201).json({
@@ -270,10 +308,41 @@ exports.updateCompany = async (req, res) => {
       return res.status(403).json({ success: false, message: 'غير مصرح لك بتعديل هذه الشركة' });
     }
 
-    const allowed = ['name', 'description', 'industry', 'location', 'companySize', 'foundedYear', 'website', 'socialLinks', 'contactEmail', 'logo', 'coverPhoto'];
+    const allowed = ['name', 'description', 'industry', 'companySize', 'foundedYear', 'website', 'socialLinks', 'contactEmail', 'logo', 'coverPhoto'];
     for (const field of allowed) {
       if (req.body[field] !== undefined) {
         company[field] = req.body[field];
+      }
+    }
+
+    // معالجة الموقع بشكل خاص لأنه كائن متداخل
+    // عند استخدام multipart/form-data يصل location كنص JSON
+    let loc = req.body.location;
+    if (typeof loc === 'string') {
+      try {
+        loc = JSON.parse(loc);
+      } catch (e) {
+        loc = null;
+      }
+    }
+    if (loc && typeof loc === 'object') {
+      if (!company.location) {
+        company.location = {};
+      }
+      if (loc.country !== undefined) company.location.country = loc.country;
+      if (loc.city !== undefined) company.location.city = loc.city;
+      if (loc.street !== undefined) company.location.street = loc.street;
+      if (loc.buildingNumber !== undefined) company.location.buildingNumber = loc.buildingNumber;
+      if (loc.coordinates) {
+        if (!company.location.coordinates) {
+          company.location.coordinates = { type: 'Point', coordinates: [0, 0] };
+        }
+        if (loc.coordinates.x !== undefined || loc.coordinates.coordinates?.[0] !== undefined) {
+          company.location.coordinates.coordinates[0] = Number(loc.coordinates.x) || Number(loc.coordinates.coordinates?.[0]) || 0;
+        }
+        if (loc.coordinates.y !== undefined || loc.coordinates.coordinates?.[1] !== undefined) {
+          company.location.coordinates.coordinates[1] = Number(loc.coordinates.y) || Number(loc.coordinates.coordinates?.[1]) || 0;
+        }
       }
     }
 

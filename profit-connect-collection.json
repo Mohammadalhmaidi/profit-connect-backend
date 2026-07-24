@@ -1,0 +1,256 @@
+{
+  "info": {
+    "name": "Profit Connect API",
+    "description": "مجموعة شاملة لجميع واجهات منصة Profit Connect — قابلة للاستيراد في Postman أو Bruno",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "description": "تسجيل ودخول المستخدمين",
+      "auth": { "type": "noauth" },
+      "item": [
+        {
+          "name": "تسجيل مستخدم جديد",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "email", "value": "user@example.com", "type": "text" },
+                { "key": "password", "value": "12345678", "type": "text" },
+                { "key": "role", "value": "JobSeeker", "type": "text" },
+                { "key": "firstName", "value": "أحمد", "type": "text" },
+                { "key": "lastName", "value": "محمد", "type": "text" },
+                { "key": "avatar", "value": "", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/auth/signup", "host": ["{{base_url}}"], "path": ["api", "auth", "signup"] }
+          }
+        },
+        {
+          "name": "تسجيل الدخول",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"12345678\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.token) {",
+                  "  pm.environment.set('token', jsonData.token);",
+                  "  pm.environment.set('userId', jsonData.data?._id || jsonData.user?._id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "المستخدم الحالي",
+          "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User",
+      "description": "الملف الشخصي، الإعدادات، السمعة، المنشورات المحفوظة",
+      "item": [
+        { "name": "الملف الشخصي", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/profile", "host": ["{{base_url}}"], "path": ["api", "user", "profile"] } } },
+        {
+          "name": "تحديث الملف الشخصي",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"أحمد\",\n  \"lastName\": \"محمد\",\n  \"headline\": \"مطور واجهات خلفية\",\n  \"bio\": \"خبرة 5 سنوات\",\n  \"location\": \"الرياض\",\n  \"socialLinks\": {\n    \"linkedin\": \"https://linkedin.com/in/ahmed\",\n    \"github\": \"https://github.com/ahmed\"\n  }\n}" },
+            "url": { "raw": "{{base_url}}/api/user/profile", "host": ["{{base_url}}"], "path": ["api", "user", "profile"] }
+          }
+        },
+        { "name": "حذف الحساب", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/user/profile", "host": ["{{base_url}}"], "path": ["api", "user", "profile"] } } },
+        { "name": "تحديث الصورة الرمزية", "request": { "method": "PUT", "header": [], "body": { "mode": "formdata", "formdata": [{ "key": "avatar", "value": "", "type": "file", "src": "" }] }, "url": { "raw": "{{base_url}}/api/user/profile/avatar", "host": ["{{base_url}}"], "path": ["api", "user", "profile", "avatar"] } } },
+        {
+          "name": "تغيير كلمة المرور",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"old_password\",\n  \"newPassword\": \"new_password_123\"\n}" },
+            "url": { "raw": "{{base_url}}/api/user/change-password", "host": ["{{base_url}}"], "path": ["api", "user", "change-password"] }
+          }
+        },
+        { "name": "تصدير البيانات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/export-data", "host": ["{{base_url}}"], "path": ["api", "user", "export-data"] } } },
+        { "name": "الإعدادات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/settings", "host": ["{{base_url}}"], "path": ["api", "user", "settings"] } } },
+        {
+          "name": "تحديث الإعدادات",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"language\": \"ar\",\n  \"theme\": \"dark\",\n  \"emailNotifications\": true,\n  \"pushNotifications\": true,\n  \"profileVisibility\": \"public\",\n  \"showEmail\": false,\n  \"showPhone\": false,\n  \"animationEnabled\": true\n}" },
+            "url": { "raw": "{{base_url}}/api/user/settings", "host": ["{{base_url}}"], "path": ["api", "user", "settings"] }
+          }
+        },
+        { "name": "درجة السمعة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/reputation-score", "host": ["{{base_url}}"], "path": ["api", "user", "reputation-score"] } } },
+        { "name": "حفظ منشور", "request": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/user/saved-posts/{{postId}}", "host": ["{{base_url}}"], "path": ["api", "user", "saved-posts", "{{postId}}"] } } },
+        { "name": "إلغاء حفظ منشور", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/user/saved-posts/{{postId}}", "host": ["{{base_url}}"], "path": ["api", "user", "saved-posts", "{{postId}}"] } } },
+        { "name": "المنشورات المحفوظة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/saved-posts", "host": ["{{base_url}}"], "path": ["api", "user", "saved-posts"] } } },
+        { "name": "بيانات مستخدم آخر", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/{{userId}}", "host": ["{{base_url}}"], "path": ["api", "user", "{{userId}}"] } } },
+        { "name": "متابعة / إلغاء متابعة", "request": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/user/{{userId}}/follow", "host": ["{{base_url}}"], "path": ["api", "user", "{{userId}}", "follow"] } } },
+        { "name": "قائمة المتابعين", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/{{userId}}/followers", "host": ["{{base_url}}"], "path": ["api", "user", "{{userId}}", "followers"] } } },
+        { "name": "قائمة المتابَعين", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/user/{{userId}}/following", "host": ["{{base_url}}"], "path": ["api", "user", "{{userId}}", "following"] } } }
+      ]
+    },
+    {
+      "name": "📝 Posts",
+      "description": "المنشورات، الإعجابات، التعليقات",
+      "item": [
+        { "name": "إنشاء منشور", "request": { "method": "POST", "header": [], "body": { "mode": "formdata", "formdata": [{ "key": "content", "value": "مرحباً بالعالم! منشور تجريبي.", "type": "text" }, { "key": "visibility", "value": "public", "type": "text" }, { "key": "image", "value": "", "type": "file", "src": "" }, { "key": "video", "value": "", "type": "file", "src": "" }] }, "url": { "raw": "{{base_url}}/api/posts", "host": ["{{base_url}}"], "path": ["api", "posts"] } } },
+        { "name": "المنشورات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/posts?page=1&limit=10", "host": ["{{base_url}}"], "path": ["api", "posts"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] } } },
+        { "name": "عرض منشور", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/posts/{{postId}}", "host": ["{{base_url}}"], "path": ["api", "posts", "{{postId}}"] } } },
+        { "name": "تعديل منشور", "request": { "method": "PUT", "header": [], "body": { "mode": "formdata", "formdata": [{ "key": "content", "value": "محتوى معدّل", "type": "text" }] }, "url": { "raw": "{{base_url}}/api/posts/{{postId}}", "host": ["{{base_url}}"], "path": ["api", "posts", "{{postId}}"] } } },
+        { "name": "حذف منشور", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/posts/{{postId}}", "host": ["{{base_url}}"], "path": ["api", "posts", "{{postId}}"] } } },
+        { "name": "إعجاب / إلغاء إعجاب", "request": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/posts/{{postId}}/like", "host": ["{{base_url}}"], "path": ["api", "posts", "{{postId}}", "like"] } } },
+        { "name": "إضافة تعليق", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"content\": \"تعليق رائع! 👍\"\n}" }, "url": { "raw": "{{base_url}}/api/posts/{{postId}}/comments", "host": ["{{base_url}}"], "path": ["api", "posts", "{{postId}}", "comments"] } } },
+        { "name": "حذف تعليق", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/posts/{{postId}}/comments/{{commentId}}", "host": ["{{base_url}}"], "path": ["api", "posts", "{{postId}}", "comments", "{{commentId}}"] } } }
+      ]
+    },
+    {
+      "name": "🏢 Companies",
+      "description": "الشركات (يتطلب دور Employer للإنشاء)",
+      "item": [
+        {
+          "name": "إنشاء شركة",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "شركة التقنية المتطورة", "type": "text" },
+                { "key": "description", "value": "شركة رائدة في حلول البرمجيات", "type": "text" },
+                { "key": "industry", "value": "تقنية معلومات", "type": "text" },
+                { "key": "location", "value": "الرياض", "type": "text" },
+                { "key": "size", "value": "50-100", "type": "text" },
+                { "key": "website", "value": "https://example.com", "type": "text" },
+                { "key": "email", "value": "info@example.com", "type": "text" },
+                { "key": "phone", "value": "+966500000000", "type": "text" },
+                { "key": "documents", "value": "", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/companies", "host": ["{{base_url}}"], "path": ["api", "companies"] }
+          }
+        },
+        { "name": "الشركات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/companies", "host": ["{{base_url}}"], "path": ["api", "companies"] } } },
+        { "name": "عرض شركة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/companies/{{companyId}}", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}"] } } },
+        { "name": "تحديث شركة", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"الاسم المحدّث\",\n  \"description\": \"وصف محدّث\"\n}" }, "url": { "raw": "{{base_url}}/api/companies/{{companyId}}", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}"] } } },
+        { "name": "حذف شركة", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/companies/{{companyId}}", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}"] } } },
+        { "name": "متابعة / إلغاء متابعة شركة", "request": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/companies/{{companyId}}/follow", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}", "follow"] } } },
+        { "name": "متابعو الشركة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/companies/{{companyId}}/followers", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}", "followers"] } } },
+        { "name": "إضافة مشرف", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{userId}}\"\n}" }, "url": { "raw": "{{base_url}}/api/companies/{{companyId}}/admins", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}", "admins"] } } },
+        { "name": "إضافة تقييم", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rating\": 4.5,\n  \"review\": \"شركة ممتازة\"\n}" }, "url": { "raw": "{{base_url}}/api/companies/{{companyId}}/ratings", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}", "ratings"] } } },
+        { "name": "تقييمات الشركة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/companies/{{companyId}}/ratings", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}", "ratings"] } } },
+        { "name": "حذف تقييمي", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/companies/{{companyId}}/ratings", "host": ["{{base_url}}"], "path": ["api", "companies", "{{companyId}}", "ratings"] } } }
+      ]
+    },
+    {
+      "name": "📋 Projects",
+      "description": "المشاريع الحرة (Freelance) والعروض والإشعارات",
+      "item": [
+        { "name": "إنشاء مشروع", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"بناء موقع إلكتروني\",\n  \"description\": \"مطلوب مطور لعمل موقع شركة\",\n  \"budget\": 5000,\n  \"currency\": \"SAR\",\n  \"deadline\": \"2026-12-31\"\n}" }, "url": { "raw": "{{base_url}}/api/projects", "host": ["{{base_url}}"], "path": ["api", "projects"] } } },
+        { "name": "المشاريع", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/projects?page=1&limit=10", "host": ["{{base_url}}"], "path": ["api", "projects"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] } } },
+        { "name": "عرض مشروع", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/projects/{{projectId}}", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}"] } } },
+        { "name": "تحديث مشروع", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"عنوان محدّث\",\n  \"budget\": 6000\n}" }, "url": { "raw": "{{base_url}}/api/projects/{{projectId}}", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}"] } } },
+        { "name": "حذف مشروع", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/projects/{{projectId}}", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}"] } } },
+        { "name": "تقديم عرض", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"coverLetter\": \"أنا مهتم بهذا المشروع، خبرة 5 سنوات\",\n  \"bidAmount\": 4500,\n  \"estimatedDays\": 30\n}" }, "url": { "raw": "{{base_url}}/api/projects/{{projectId}}/proposals", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}", "proposals"] } } },
+        { "name": "عروض المشروع", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/projects/{{projectId}}/proposals", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}", "proposals"] } } },
+        { "name": "قبول عرض", "request": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/projects/{{projectId}}/proposals/{{proposalId}}/accept", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}", "proposals", "{{proposalId}}", "accept"] } } },
+        { "name": "رفض عرض", "request": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/projects/{{projectId}}/proposals/{{proposalId}}/reject", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}", "proposals", "{{proposalId}}", "reject"] } } },
+        { "name": "إكمال مشروع", "request": { "method": "PATCH", "header": [], "url": { "raw": "{{base_url}}/api/projects/{{projectId}}/complete", "host": ["{{base_url}}"], "path": ["api", "projects", "{{projectId}}", "complete"] } } },
+        { "name": "طلباتي (My Proposals)", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/projects/my-proposals", "host": ["{{base_url}}"], "path": ["api", "projects", "my-proposals"] } } },
+        { "name": "مشاريعي مع العروض", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/projects/my-projects-with-proposals", "host": ["{{base_url}}"], "path": ["api", "projects", "my-projects-with-proposals"] } } },
+        { "name": "الإشعارات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/projects/notifications", "host": ["{{base_url}}"], "path": ["api", "projects", "notifications"] } } },
+        { "name": "آخر الإشعارات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/projects/notifications/recent", "host": ["{{base_url}}"], "path": ["api", "projects", "notifications", "recent"] } } },
+        { "name": "تحديد إشعار كمقروء", "request": { "method": "PUT", "header": [], "url": { "raw": "{{base_url}}/api/projects/notifications/{{notificationId}}/read", "host": ["{{base_url}}"], "path": ["api", "projects", "notifications", "{{notificationId}}", "read"] } } }
+      ]
+    },
+    {
+      "name": "💼 Jobs",
+      "description": "الوظائف والتقديم عليها",
+      "item": [
+        { "name": "إنشاء وظيفة", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"مطور Node.js\",\n  \"description\": \"نبحث عن مطور خبير\",\n  \"requirements\": \"خبرة 3 سنوات في Node.js\",\n  \"location\": \"الرياض\",\n  \"type\": \"full-time\",\n  \"salaryRange\": \"5000-10000\",\n  \"company\": \"{{companyId}}\"\n}" }, "url": { "raw": "{{base_url}}/api/jobs", "host": ["{{base_url}}"], "path": ["api", "jobs"] } } },
+        { "name": "الوظائف", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/jobs?page=1&limit=10", "host": ["{{base_url}}"], "path": ["api", "jobs"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] } } },
+        { "name": "التقديم على وظيفة", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"coverLetter\": \"أنا مهتم بهذه الوظيفة\",\n  \"expectedSalary\": 8000\n}" }, "url": { "raw": "{{base_url}}/api/jobs/{{jobId}}/apply", "host": ["{{base_url}}"], "path": ["api", "jobs", "{{jobId}}", "apply"] } } },
+        { "name": "المتقدمون للوظيفة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/jobs/{{jobId}}/applicants", "host": ["{{base_url}}"], "path": ["api", "jobs", "{{jobId}}", "applicants"] } } },
+        { "name": "تحديث حالة طلب", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"accepted\"\n}" }, "url": { "raw": "{{base_url}}/api/jobs/applications/{{applicationId}}/status", "host": ["{{base_url}}"], "path": ["api", "jobs", "applications", "{{applicationId}}", "status"] } } },
+        { "name": "طلباتي", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/jobs/my-applications", "host": ["{{base_url}}"], "path": ["api", "jobs", "my-applications"] } } }
+      ]
+    },
+    {
+      "name": "💬 Messages",
+      "description": "الرسائل والمحادثات",
+      "item": [
+        { "name": "إنشاء/جلب محادثة", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"participantId\": \"{{userId}}\"\n}" }, "url": { "raw": "{{base_url}}/api/messages/conversations", "host": ["{{base_url}}"], "path": ["api", "messages", "conversations"] } } },
+        { "name": "المحادثات الخاصة بي", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/messages/conversations", "host": ["{{base_url}}"], "path": ["api", "messages", "conversations"] } } },
+        { "name": "رسائل محادثة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/messages/conversations/{{conversationId}}", "host": ["{{base_url}}"], "path": ["api", "messages", "conversations", "{{conversationId}}"] } } },
+        { "name": "إرسال رسالة", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"content\": \"مرحباً! كيف حالك؟\"\n}" }, "url": { "raw": "{{base_url}}/api/messages/conversations/{{conversationId}}", "host": ["{{base_url}}"], "path": ["api", "messages", "conversations", "{{conversationId}}"] } } },
+        { "name": "الرسائل غير المقروءة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/messages/unread", "host": ["{{base_url}}"], "path": ["api", "messages", "unread"] } } }
+      ]
+    },
+    {
+      "name": "👥 Follow",
+      "description": "متابعة المستخدمين (مسار /api/users)",
+      "item": [
+        { "name": "متابعة مستخدم", "request": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/users/{{userId}}/follow", "host": ["{{base_url}}"], "path": ["api", "users", "{{userId}}", "follow"] } } },
+        { "name": "إلغاء متابعة", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/users/{{userId}}/follow", "host": ["{{base_url}}"], "path": ["api", "users", "{{userId}}", "follow"] } } }
+      ]
+    },
+    {
+      "name": "🛡️ Admin",
+      "description": "لوحة الإدارة (يتطلب دور Admin)",
+      "item": [
+        { "name": "📊 الإحصائيات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/admin/stats", "host": ["{{base_url}}"], "path": ["api", "admin", "stats"] } } },
+        { "name": "👥 المستخدمون", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/admin/users?page=1&limit=10", "host": ["{{base_url}}"], "path": ["api", "admin", "users"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] } } },
+        { "name": "مستخدم كامل", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/admin/users/{{userId}}", "host": ["{{base_url}}"], "path": ["api", "admin", "users", "{{userId}}"] } } },
+        { "name": "تغيير دور مستخدم", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"role\": \"Employer\"\n}" }, "url": { "raw": "{{base_url}}/api/admin/users/{{userId}}/role", "host": ["{{base_url}}"], "path": ["api", "admin", "users", "{{userId}}", "role"] } } },
+        { "name": "تفعيل/حظر مستخدم", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"banned\",\n  \"bannedUntil\": \"2026-12-31T00:00:00.000Z\"\n}" }, "url": { "raw": "{{base_url}}/api/admin/users/{{userId}}/status", "host": ["{{base_url}}"], "path": ["api", "admin", "users", "{{userId}}", "status"] } } },
+        { "name": "حذف مستخدم", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/admin/users/{{userId}}", "host": ["{{base_url}}"], "path": ["api", "admin", "users", "{{userId}}"] } } },
+        { "name": "🏢 جميع الشركات", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/admin/companies?status=Pending", "host": ["{{base_url}}"], "path": ["api", "admin", "companies"], "query": [{ "key": "status", "value": "Pending" }] } } },
+        { "name": "الشركات المعلّقة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/admin/companies/pending", "host": ["{{base_url}}"], "path": ["api", "admin", "companies", "pending"] } } },
+        { "name": "شركة كاملة", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/admin/companies/{{companyId}}", "host": ["{{base_url}}"], "path": ["api", "admin", "companies", "{{companyId}}"] } } },
+        { "name": "اعتماد/رفض شركة", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"Approved\"\n}" }, "url": { "raw": "{{base_url}}/api/admin/companies/{{companyId}}/status", "host": ["{{base_url}}"], "path": ["api", "admin", "companies", "{{companyId}}", "status"] } } },
+        { "name": "حذف شركة (إدارة)", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/admin/companies/{{companyId}}", "host": ["{{base_url}}"], "path": ["api", "admin", "companies", "{{companyId}}"] } } },
+        { "name": "📝 المنشورات (إشراف)", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/admin/posts?minAi=50&page=1&limit=20", "host": ["{{base_url}}"], "path": ["api", "admin", "posts"], "query": [{ "key": "minAi", "value": "50" }, { "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] } } },
+        { "name": "حذف منشور (إشراف)", "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/admin/posts/{{postId}}", "host": ["{{base_url}}"], "path": ["api", "admin", "posts", "{{postId}}"] } } }
+      ]
+    },
+    {
+      "name": "⚙️ Other",
+      "description": "الرواتب والترجمة وتحسين النص",
+      "item": [
+        { "name": "الرواتب", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/salaries", "host": ["{{base_url}}"], "path": ["api", "salaries"] } } },
+        { "name": "خيارات الرواتب", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/salaries/options", "host": ["{{base_url}}"], "path": ["api", "salaries", "options"] } } },
+        { "name": "إحصائيات الرواتب", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/salaries/stats", "host": ["{{base_url}}"], "path": ["api", "salaries", "stats"] } } },
+        { "name": "ترجمة", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"text\": \"Hello world\",\n  \"targetLang\": \"ar\"\n}" }, "url": { "raw": "{{base_url}}/api/translate", "host": ["{{base_url}}"], "path": ["api", "translate"] } } },
+        { "name": "تحسين نص", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"content\": \"هذا النص يحتاج تحسين\"\n}" }, "url": { "raw": "{{base_url}}/api/improve", "host": ["{{base_url}}"], "path": ["api", "improve"] } } }
+      ]
+    }
+  ]
+}
