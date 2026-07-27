@@ -4,6 +4,7 @@ const { avatarsDir, allowedMimeTypes: avatarMimeTypes } = require('../utils/avat
 const { postsDir, videosDir, allowedImageMimeTypes, allowedVideoMimeTypes } = require('../utils/postImageStorage');
 const { companyDocsDir, allowedDocMimeTypes } = require('../utils/companyStorage');
 const { companyMediaDir, allowedImageMimeTypes: companyMediaMimeTypes } = require('../utils/companyMedia');
+const { resumesDir, allowedResumeMimeTypes } = require('../utils/resumeStorage');
 
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -144,10 +145,36 @@ const uploadCompanyMedia = multer({
   fileFilter: companyMediaFileFilter,
 });
 
+// ==========================================
+// Resume / CV Upload
+// ==========================================
+const resumeStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, resumesDir),
+  filename: (req, file, cb) => {
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `resume-${req.user._id}-${uniqueSuffix}${fileExtension}`);
+  },
+});
+
+const resumeFileFilter = (req, file, cb) => {
+  if (!allowedResumeMimeTypes.includes(file.mimetype)) {
+    return cb(new Error('نوع الملف غير مدعوم. الرجاء رفع السيرة الذاتية بصيغة PDF أو Word'));
+  }
+  cb(null, true);
+};
+
+const uploadResume = multer({
+  storage: resumeStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: resumeFileFilter,
+});
+
 module.exports = {
   uploadAvatar,
   uploadPostImage,
   uploadPostMedia,
   uploadCompanyDocs,
   uploadCompanyMedia,
+  uploadResume,
 };

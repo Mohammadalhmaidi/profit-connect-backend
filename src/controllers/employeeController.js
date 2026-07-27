@@ -1,6 +1,7 @@
 const Company = require('../models/Company');
 const User = require('../models/User');
 const Job = require('../models/Job');
+const JobApplication = require('../models/JobApplication');
 const bcrypt = require('bcryptjs');
 
 // ==========================================
@@ -542,8 +543,14 @@ exports.getJobApplicants = async (req, res) => {
       });
     }
 
-    const applicants = await Job.find({ job: req.params.id })
-      .populate('applicant', 'profile.firstName profile.lastName profile.headline profile.avatar email')
+    // فلترة حسب الحالة إذا تم إرسالها
+    const filter = { job: req.params.id };
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    const applicants = await JobApplication.find(filter)
+      .populate('applicant', 'profile.firstName profile.lastName profile.avatar profile.headline profile.location profile.phoneNumber professional.skills professional.industry professional.yearsOfExperience profile.rScore email role status createdAt')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -579,7 +586,7 @@ exports.updateApplicationStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'حالة الطلب غير صالحة' });
     }
 
-    const application = await Job.findById(applicationId).populate({
+    const application = await JobApplication.findById(applicationId).populate({
       path: 'job',
       populate: { path: 'company' }
     });
@@ -619,6 +626,28 @@ exports.updateApplicationStatus = async (req, res) => {
 
     application.status = status;
     await application.save();
+
+    // إرسال إشعار للمتقدم عن تغيير حالة طلبه
+    const applicant = await User.findById(application.applicant);
+    if (applicant) {
+      const statusMessages = {
+        Pending: 'قيد المعالجة',
+        Reviewed: 'تمت مراجعة طلبك',
+        Shortlisted: 'تم قبولك مبدئياً',
+        Accepted: 'تم قبولك في الوظيفة! مبروك',
+        Rejected: 'لم نتمكن من قبولك في هذه المرة'
+      };
+
+      applicant.notifications.push({
+        type: 'job_application_status',
+        companyId: application.job.company._id,
+        jobId: application.job._id,
+        applicationStatus: status,
+        message: `تم تحديث حالة طلبك لوظيفة "${application.job.title}" في شركة "${application.job.company.name}" إلى: ${statusMessages[status] || status}`,
+        read: false
+      });
+      await applicant.save();
+    }
 
     res.status(200).json({
       success: true,
@@ -684,7 +713,6 @@ exports.getCompanyStats = async (req, res) => {
     const jobs = await Job.find({ company: companyId }).select('_id');
     const jobIds = jobs.map(j => j._id);
     
-    const JobApplication = require('../models/Job');
     const totalApplicants = await JobApplication.countDocuments({ 
       job: { $in: jobIds } 
     });

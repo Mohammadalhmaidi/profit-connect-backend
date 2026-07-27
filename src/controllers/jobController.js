@@ -1,6 +1,7 @@
 const Job = require('../models/Job');
 const Company = require('../models/Company');
-const JobApplication = require('../models/Job');
+const JobApplication = require('../models/JobApplication');
+const { buildResumeUrl, deleteResumeFile } = require('../utils/resumeStorage');
 
 // ==========================================
 // @desc    نشر وظيفة جديدة
@@ -56,7 +57,7 @@ exports.createJob = async (req, res) => {
 exports.getJobs = async (req, res) => {
   try {
     // بناء نظام فلاتر للبحث المتقدم
-    const { type, workPlace, workLevel } = req.query;
+    const { type, workPlace, workLevel, limit, country, minSalary, maxSalary } = req.query;
     
     // افتراضياً نجلب الوظائف المفتوحة فقط
     let query = { status: 'Open' };
@@ -65,11 +66,24 @@ exports.getJobs = async (req, res) => {
     if (type) query.type = type;
     if (workPlace) query.workPlace = workPlace;
     if (workLevel) query.workLevel = workLevel;
+    if (country) query.location = { $regex: country, $options: 'i' };
+
+    // فلتر نطاق الراتب
+    if (minSalary || maxSalary) {
+      query['salary.min'] = {};
+      query['salary.max'] = {};
+      if (minSalary) query['salary.min'].$gte = Number(minSalary);
+      if (maxSalary) query['salary.max'].$lte = Number(maxSalary);
+    }
+
+    // عدد النتائج المطلوبة (الافتراضي 10)
+    const resultLimit = parseInt(limit) || 10;
 
     // جلب الوظائف وترتيبها من الأحدث للأقدم
     const jobs = await Job.find(query)
       .populate('company', 'name logo location') // جلب بيانات الشركة الأساسية مع الوظيفة
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(resultLimit);
 
     res.status(200).json({ 
       success: true, 
@@ -83,6 +97,41 @@ exports.getJobs = async (req, res) => {
 };
 
 // ==========================================
+// @desc    جلب تفاصيل وظيفة معينة مع بيانات الشركة بشكل مفصل
+// @route   GET /api/jobs/:id
+// @access  Public (متاح للجميع)
+// ==========================================
+exports.getJobById = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id)
+      .populate({
+        path: 'company',
+        select: 'name description industry location companySize foundedYear logo coverPhoto website socialLinks contactEmail isVerified status followersCount averageRating ratings createdAt',
+        populate: {
+          path: 'owner',
+          select: 'profile.firstName profile.lastName profile.avatar'
+        }
+      })
+      .populate('postedBy', 'profile.firstName profile.lastName profile.avatar profile.headline');
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'الوظيفة غير موجودة' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: job
+    });
+  } catch (error) {
+    console.error('Get Job By Id Error:', error.message);
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ success: false, message: 'الوظيفة غير موجودة' });
+    }
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب تفاصيل الوظيفة' });
+  }
+};
+
+// ==========================================
 // @desc    التقديم على وظيفة
 // @route   POST /api/jobs/:id/apply
 // @access  Private (يحتاج تسجيل دخول)
@@ -90,7 +139,7 @@ exports.getJobs = async (req, res) => {
 exports.applyForJob = async (req, res) => {
   try {
     const jobId = req.params.id;
-    const { resumeLink, coverLetter } = req.body;
+    const { coverLetter } = req.body;
 
     // 1. التأكد من أن الوظيفة موجودة ومتاحة للتقديم
     const job = await Job.findById(jobId);
@@ -113,17 +162,24 @@ exports.applyForJob = async (req, res) => {
       return res.status(400).json({ success: false, message: 'لقد قمت بالتقديم على هذه الوظيفة مسبقاً' });
     }
 
-    // 3. إنشاء طلب التوظيف
+    // 3. رفع ملف السيرة الذاتية
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'يرجى رفع ملف السيرة الذاتية (PDF أو Word)' });
+    }
+
+    const resumeUrl = buildResumeUrl(req, req.file.filename);
+
+    // 4. إنشاء طلب التوظيف
     const application = await JobApplication.create({
       job: jobId,
       applicant: req.user._id,
-      resumeLink,
-      coverLetter
+      coverLetter,
+      resume: resumeUrl
     });
 
     res.status(201).json({
       success: true,
-      message: 'تم إرسال طلب التقديم بنجاح! حظاً موفقاً 🚀',
+      message: 'تم إرسال طلب التقديم بنجاح! حظاً موفقاً',
       data: application
     });
 
@@ -257,5 +313,55 @@ exports.getMyApplications = async (req, res) => {
   } catch (error) {
     console.error('Get My Applications Error:', error.message);
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب طلباتك' });
+  }
+};
+
+// ==========================================
+// @desc    تحديث حالة الوظيفة (Open/Closed)
+// @route   PUT /api/jobs/:id/status
+// @access  Private (المالك أو المدير أو الموظف بصلاحية)
+// ==========================================
+exports.updateJobStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const jobId = req.params.id;
+
+    if (!['Open', 'Closed'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'حالة الوظيفة غير صالحة. القيم المسموحة: Open, Closed' 
+      });
+    }
+
+    const job = await Job.findById(jobId).populate('company');
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'الوظيفة غير موجودة' });
+    }
+
+    const company = job.company;
+    const isOwner = company.owner.toString() === req.user._id.toString();
+    const isAdmin = company.admins.some(a => a.toString() === req.user._id.toString());
+    const isEmployee = req.user.role === 'CompanyEmployee' && 
+                       req.user.companyEmployeeProfile?.companyId?.toString() === company._id.toString() &&
+                       req.user.companyEmployeeProfile?.permissions?.canPostJobs;
+
+    if (!isOwner && !isAdmin && !isEmployee) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'ليس لديك صلاحية تغيير حالة هذه الوظيفة' 
+      });
+    }
+
+    job.status = status;
+    await job.save();
+
+    res.status(200).json({
+      success: true,
+      message: `تم ${status === 'Open' ? 'فتح' : 'إغلاق'} الوظيفة بنجاح`,
+      data: job
+    });
+  } catch (error) {
+    console.error('Update Job Status Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء تحديث حالة الوظيفة' });
   }
 };

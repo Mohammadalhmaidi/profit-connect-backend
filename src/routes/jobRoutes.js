@@ -4,24 +4,25 @@ const router = express.Router();
 const { 
   createJob, 
   getJobs, 
-  applyForJob,// 👈 استدعاء دالة التقديم 
-  getJobApplicants,        // 👈 دالة جلب المتقدمين
-  updateApplicationStatus,  // 👈 دالة تحديث حالة الطلب
-  getMyApplications // 👈 استيراد الدالة الجديدة
+  getJobById,
+  applyForJob,
+  getJobApplicants,
+  updateApplicationStatus,
+  getMyApplications,
+  updateJobStatus
 } = require('../controllers/jobController');
 
 const { protect } = require('../middleware/authMiddleware');
+const { uploadResume } = require('../middleware/uploadMiddleware');
 
 router.get('/', getJobs); 
-router.post('/', protect, createJob); 
-// مسار التقديم على وظيفة معينة (يحتاج تسجيل دخول)
-router.post('/:id/apply', protect, applyForJob);
-// 👈 مسار جلب المتقدمين لوظيفة معينة
-router.get('/:id/applicants', protect, getJobApplicants);
-// 👈 مسار تحديث حالة الطلب (لاحظ أننا نمرر الـ ID الخاص بطلب التوظيف نفسه)
-router.put('/applications/:applicationId/status', protect, updateApplicationStatus);
-// مسار جلب طلبات المستخدم (يجب أن يكون فوق المسارات التي تحتوي على :id)
 router.get('/my-applications', protect, getMyApplications);
+router.get('/:id', getJobById);
+router.post('/', protect, createJob); 
+router.post('/:id/apply', protect, uploadResume.single('resume'), applyForJob);
+router.get('/:id/applicants', protect, getJobApplicants);
+router.put('/:id/status', protect, updateJobStatus);
+router.put('/applications/:applicationId/status', protect, updateApplicationStatus);
 
 
 module.exports = router;
