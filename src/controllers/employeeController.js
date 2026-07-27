@@ -288,21 +288,36 @@ exports.updateEmployee = async (req, res) => {
 };
 
 // ==========================================
-// @desc    جلب معلومات الشركة الخاصة بالموظف (لوحة التحكم)
+// @desc    جلب معلومات الشركة (للموظف أو المالك)
 // @route   GET /api/employee/my-company
-// @access  Private (CompanyEmployee only)
+// @access  Private (CompanyEmployee or Company Owner)
 // ==========================================
 exports.getMyCompany = async (req, res) => {
   try {
-    // التحقق من أن المستخدم موظف شركة
-    if (req.user.role !== 'CompanyEmployee') {
+    if (req.user.role !== 'CompanyEmployee' && req.user.role !== 'Employer') {
       return res.status(403).json({ 
         success: false, 
-        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات فقط' 
+        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات وأصحاب العمل فقط' 
       });
     }
 
-    const companyId = req.user.companyEmployeeProfile?.companyId;
+    let companyId;
+    if (req.user.role === 'CompanyEmployee') {
+      companyId = req.user.companyEmployeeProfile?.companyId;
+    } else {
+      // المالك: companyId من الـ query
+      companyId = req.query.companyId;
+      if (companyId) {
+        const companyCheck = await Company.findById(companyId);
+        if (!companyCheck || companyCheck.owner.toString() !== req.user._id.toString()) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'غير مصرح لك!' 
+          });
+        }
+      }
+    }
+
     if (!companyId) {
       return res.status(404).json({ 
         success: false, 
@@ -329,7 +344,9 @@ exports.getMyCompany = async (req, res) => {
           totalJobs: jobsCount,
           openJobs: openJobsCount
         },
-        myPermissions: req.user.companyEmployeeProfile?.permissions || {}
+        myPermissions: req.user.role === 'Employer' 
+          ? { canPostJobs: true, canManageApplicants: true, canViewAnalytics: true }
+          : (req.user.companyEmployeeProfile?.permissions || {})
       }
     });
   } catch (error) {
@@ -339,20 +356,36 @@ exports.getMyCompany = async (req, res) => {
 };
 
 // ==========================================
-// @desc    جلب وظائف الشركة (للموظف)
+// @desc    جلب وظائف الشركة (للموظف أو المالك)
 // @route   GET /api/employee/jobs
-// @access  Private (CompanyEmployee only)
+// @access  Private (CompanyEmployee or Company Owner)
 // ==========================================
 exports.getCompanyJobs = async (req, res) => {
   try {
-    if (req.user.role !== 'CompanyEmployee') {
+    if (req.user.role !== 'CompanyEmployee' && req.user.role !== 'Employer') {
       return res.status(403).json({ 
         success: false, 
-        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات فقط' 
+        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات وأصحاب العمل فقط' 
       });
     }
 
-    const companyId = req.user.companyEmployeeProfile?.companyId;
+    let companyId;
+    if (req.user.role === 'CompanyEmployee') {
+      companyId = req.user.companyEmployeeProfile?.companyId;
+    } else {
+      // المالك: companyId من الـ query
+      companyId = req.query.companyId;
+      if (companyId) {
+        const companyCheck = await Company.findById(companyId);
+        if (!companyCheck || companyCheck.owner.toString() !== req.user._id.toString()) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'غير مصرح لك!' 
+          });
+        }
+      }
+    }
+
     if (!companyId) {
       return res.status(404).json({ 
         success: false, 
@@ -390,28 +423,46 @@ exports.getCompanyJobs = async (req, res) => {
 };
 
 // ==========================================
-// @desc    نشر وظيفة جديدة (للموظف)
+// @desc    نشر وظيفة جديدة (للموظف أو المالك)
 // @route   POST /api/employee/jobs
-// @access  Private (CompanyEmployee only - must have canPostJobs permission)
+// @access  Private (CompanyEmployee or Company Owner)
 // ==========================================
 exports.createJob = async (req, res) => {
   try {
-    if (req.user.role !== 'CompanyEmployee') {
+    if (req.user.role !== 'CompanyEmployee' && req.user.role !== 'Employer') {
       return res.status(403).json({ 
         success: false, 
-        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات فقط' 
+        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات وأصحاب العمل فقط' 
       });
     }
 
-    // التحقق من الصلاحية
-    if (!req.user.companyEmployeeProfile?.permissions?.canPostJobs) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'ليس لديك صلاحية نشر الوظائف' 
-      });
+    // جلب companyId من حساب الموظف أو من الطلب للمالك
+    let companyId;
+    if (req.user.role === 'CompanyEmployee') {
+      companyId = req.user.companyEmployeeProfile?.companyId;
+      // التحقق من الصلاحية
+      if (!req.user.companyEmployeeProfile?.permissions?.canPostJobs) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'ليس لديك صلاحية نشر الوظائف' 
+        });
+      }
+    } else {
+      // المالك: companyId يُمرر في الـ body
+      companyId = req.body.companyId;
+      // البحث عن الشركة والتحقق من أن المستخدم هو المالك
+      const companyCheck = await Company.findById(companyId);
+      if (!companyCheck) {
+        return res.status(404).json({ success: false, message: 'الشركة غير موجودة' });
+      }
+      if (companyCheck.owner.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'غير مصرح لك! فقط مالك الشركة يمكنه النشر' 
+        });
+      }
     }
 
-    const companyId = req.user.companyEmployeeProfile?.companyId;
     if (!companyId) {
       return res.status(404).json({ 
         success: false, 
@@ -442,28 +493,41 @@ exports.createJob = async (req, res) => {
 };
 
 // ==========================================
-// @desc    جلب متقدمي وظيفة معينة (للموظف)
+// @desc    جلب متقدمي وظيفة معينة (للموظف أو المالك)
 // @route   GET /api/employee/jobs/:id/applicants
-// @access  Private (CompanyEmployee only - must have canManageApplicants permission)
+// @access  Private (CompanyEmployee or Company Owner)
 // ==========================================
 exports.getJobApplicants = async (req, res) => {
   try {
-    if (req.user.role !== 'CompanyEmployee') {
+    if (req.user.role !== 'CompanyEmployee' && req.user.role !== 'Employer') {
       return res.status(403).json({ 
         success: false, 
-        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات فقط' 
+        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات وأصحاب العمل فقط' 
       });
     }
 
-    // التحقق من الصلاحية
-    if (!req.user.companyEmployeeProfile?.permissions?.canManageApplicants) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'ليس لديك صلاحية إدارة المتقدمين' 
-      });
+    let companyId;
+    if (req.user.role === 'CompanyEmployee') {
+      companyId = req.user.companyEmployeeProfile?.companyId;
+      // التحقق من الصلاحية
+      if (!req.user.companyEmployeeProfile?.permissions?.canManageApplicants) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'ليس لديك صلاحية إدارة المتقدمين' 
+        });
+      }
+    } else {
+      // المالك: companyId من الـ params أو الـ query
+      const job = await Job.findById(req.params.id).populate('company');
+      if (job && job.company.owner.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'غير مصرح لك!' 
+        });
+      }
+      companyId = job?.company?._id;
     }
 
-    const companyId = req.user.companyEmployeeProfile?.companyId;
     const job = await Job.findById(req.params.id).populate('company');
 
     if (!job) {
@@ -471,7 +535,7 @@ exports.getJobApplicants = async (req, res) => {
     }
 
     // التحقق من أن الوظيفة تنتمي لشركة الموظف
-    if (job.company._id.toString() !== companyId.toString()) {
+    if (companyId && job.company._id.toString() !== companyId.toString()) {
       return res.status(403).json({ 
         success: false, 
         message: 'غير مصرح لك برؤية متقدمي هذه الوظيفة' 
@@ -494,30 +558,21 @@ exports.getJobApplicants = async (req, res) => {
 };
 
 // ==========================================
-// @desc    تحديث حالة طلب التوظيف (للموظف)
+// @desc    تحديث حالة طلب التوظيف (للموظف أو المالك)
 // @route   PUT /api/employee/jobs/applications/:applicationId/status
-// @access  Private (CompanyEmployee only - must have canManageApplicants permission)
+// @access  Private (CompanyEmployee or Company Owner)
 // ==========================================
 exports.updateApplicationStatus = async (req, res) => {
   try {
-    if (req.user.role !== 'CompanyEmployee') {
+    if (req.user.role !== 'CompanyEmployee' && req.user.role !== 'Employer') {
       return res.status(403).json({ 
         success: false, 
-        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات فقط' 
-      });
-    }
-
-    // التحقق من الصلاحية
-    if (!req.user.companyEmployeeProfile?.permissions?.canManageApplicants) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'ليس لديك صلاحية إدارة المتقدمين' 
+        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات وأصحاب العمل فقط' 
       });
     }
 
     const { status } = req.body;
     const { applicationId } = req.params;
-    const companyId = req.user.companyEmployeeProfile?.companyId;
 
     const validStatuses = ['Pending', 'Reviewed', 'Shortlisted', 'Rejected', 'Accepted'];
     if (!validStatuses.includes(status)) {
@@ -533,8 +588,29 @@ exports.updateApplicationStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'طلب التوظيف غير موجود' });
     }
 
+    let companyId;
+    if (req.user.role === 'CompanyEmployee') {
+      companyId = req.user.companyEmployeeProfile?.companyId;
+      // التحقق من الصلاحية
+      if (!req.user.companyEmployeeProfile?.permissions?.canManageApplicants) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'ليس لديك صلاحية إدارة المتقدمين' 
+        });
+      }
+    } else {
+      // المالك
+      companyId = application.job.company._id;
+      if (application.job.company.owner.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'غير مصرح لك!' 
+        });
+      }
+    }
+
     // التحقق من أن الطلب ينتمي لشركة الموظف
-    if (application.job.company._id.toString() !== companyId.toString()) {
+    if (companyId && application.job.company._id.toString() !== companyId.toString()) {
       return res.status(403).json({ 
         success: false, 
         message: 'غير مصرح لك بتعديل حالة هذا الطلب' 
@@ -556,28 +632,49 @@ exports.updateApplicationStatus = async (req, res) => {
 };
 
 // ==========================================
-// @desc    جلب إحصائيات الشركة (للموظف)
+// @desc    جلب إحصائيات الشركة (للموظف أو المالك)
 // @route   GET /api/employee/stats
-// @access  Private (CompanyEmployee only - must have canViewAnalytics permission)
+// @access  Private (CompanyEmployee or Company Owner)
 // ==========================================
 exports.getCompanyStats = async (req, res) => {
   try {
-    if (req.user.role !== 'CompanyEmployee') {
+    if (req.user.role !== 'CompanyEmployee' && req.user.role !== 'Employer') {
       return res.status(403).json({ 
         success: false, 
-        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات فقط' 
+        message: 'غير مصرح لك! هذا المسار مخصص لموظفي الشركات وأصحاب العمل فقط' 
       });
     }
 
-    // التحقق من الصلاحية
-    if (!req.user.companyEmployeeProfile?.permissions?.canViewAnalytics) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'ليس لديك صلاحية عرض الإحصائيات' 
-      });
+    let companyId;
+    if (req.user.role === 'CompanyEmployee') {
+      companyId = req.user.companyEmployeeProfile?.companyId;
+      // التحقق من الصلاحية
+      if (!req.user.companyEmployeeProfile?.permissions?.canViewAnalytics) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'ليس لديك صلاحية عرض الإحصائيات' 
+        });
+      }
+    } else {
+      // المالك: companyId من الـ query
+      companyId = req.query.companyId;
+      if (companyId) {
+        const companyCheck = await Company.findById(companyId);
+        if (!companyCheck || companyCheck.owner.toString() !== req.user._id.toString()) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'غير مصرح لك!' 
+          });
+        }
+      }
     }
 
-    const companyId = req.user.companyEmployeeProfile?.companyId;
+    if (!companyId) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'لم يتم ربطك بأي شركة' 
+      });
+    }
 
     const totalJobs = await Job.countDocuments({ company: companyId });
     const openJobs = await Job.countDocuments({ company: companyId, status: 'Open' });

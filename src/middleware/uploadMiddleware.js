@@ -3,6 +3,7 @@ const multer = require('multer');
 const { avatarsDir, allowedMimeTypes: avatarMimeTypes } = require('../utils/avatarStorage');
 const { postsDir, videosDir, allowedImageMimeTypes, allowedVideoMimeTypes } = require('../utils/postImageStorage');
 const { companyDocsDir, allowedDocMimeTypes } = require('../utils/companyStorage');
+const { companyMediaDir, allowedImageMimeTypes: companyMediaMimeTypes } = require('../utils/companyMedia');
 
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -117,9 +118,36 @@ const uploadCompanyDocs = multer({
   fileFilter: companyDocFileFilter,
 });
 
+// ==========================================
+// Company Media (Logo + Cover Photo)
+// ==========================================
+const companyMediaStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, companyMediaDir),
+  filename: (req, file, cb) => {
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const prefix = file.fieldname === 'logo' ? 'logo' : 'cover';
+    cb(null, `${prefix}-${req.user ? req.user._id : 'new'}-${uniqueSuffix}${fileExtension}`);
+  },
+});
+
+const companyMediaFileFilter = (req, file, cb) => {
+  if (!companyMediaMimeTypes.includes(file.mimetype)) {
+    return cb(new Error('نوع الملف غير مدعوم. الرجاء رفع صورة بصيغة JPG أو PNG أو WEBP'));
+  }
+  cb(null, true);
+};
+
+const uploadCompanyMedia = multer({
+  storage: companyMediaStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: companyMediaFileFilter,
+});
+
 module.exports = {
   uploadAvatar,
   uploadPostImage,
   uploadPostMedia,
   uploadCompanyDocs,
+  uploadCompanyMedia,
 };

@@ -1,6 +1,7 @@
 const Company = require('../models/Company');
 const Job = require('../models/Job');
 const { buildCompanyDocUrl } = require('../utils/companyStorage');
+const { buildCompanyMediaUrl, deleteCompanyMediaFile } = require('../utils/companyMedia');
 
 // @desc    إنشاء صفحة شركة جديدة
 // @route   POST /api/companies
@@ -178,7 +179,7 @@ exports.getCompanyById = async (req, res) => {
     const company = await Company.findById(req.params.id)
       .populate('owner', 'profile.firstName profile.lastName profile.avatar profile.headline')
       .populate('admins', 'profile.firstName profile.lastName profile.avatar')
-      .populate('followers', 'profile.firstName profile.lastName profile.avatar profile.headline')
+      .populate('followers.user', 'profile.firstName profile.lastName profile.avatar profile.headline')
       .populate('ratings.user', 'profile.firstName profile.lastName profile.avatar profile.headline');
 
     if (!company) {
@@ -219,18 +220,20 @@ exports.toggleFollowCompany = async (req, res) => {
     }
 
     // التحقق مما إذا كان المستخدم يتابع الشركة بالفعل
-    const index = company.followers.indexOf(req.user._id);
+    const followerIndex = company.followers.findIndex(
+      f => f.user.toString() === req.user._id.toString()
+    );
     let isFollowing = false;
 
-    if (index === -1) {
-      // إذا لم يكن يتابعها (-1)، نقوم بإضافته
-      company.followers.push(req.user._id);
-      company.followersCount += 1; // زيادة العداد
+    if (followerIndex === -1) {
+      // إذا لم يكن يتابعها، نقوم بإضافته
+      company.followers.push({ user: req.user._id, followedAt: new Date() });
+      company.followersCount += 1;
       isFollowing = true;
     } else {
       // إذا كان يتابعها مسبقاً، نقوم بإلغاء المتابعة
-      company.followers.splice(index, 1);
-      company.followersCount -= 1; // إنقاص العداد
+      company.followers.splice(followerIndex, 1);
+      company.followersCount -= 1;
     }
 
     await company.save();
@@ -308,11 +311,35 @@ exports.updateCompany = async (req, res) => {
       return res.status(403).json({ success: false, message: 'غير مصرح لك بتعديل هذه الشركة' });
     }
 
-    const allowed = ['name', 'description', 'industry', 'companySize', 'foundedYear', 'website', 'socialLinks', 'contactEmail', 'logo', 'coverPhoto'];
+    const allowed = ['name', 'description', 'industry', 'companySize', 'foundedYear', 'website', 'socialLinks', 'contactEmail'];
     for (const field of allowed) {
       if (req.body[field] !== undefined) {
         company[field] = req.body[field];
       }
+    }
+
+    // معالجة رفع صورة الشعار (Logo)
+    if (req.files && req.files.logo && req.files.logo[0]) {
+      // حذف الصورة القديمة إذا كانت محلية
+      if (company.logo && company.logo !== 'default-company-logo.png') {
+        await deleteCompanyMediaFile(company.logo);
+      }
+      company.logo = buildCompanyMediaUrl(req, req.files.logo[0].filename);
+    } else if (req.body.logo !== undefined) {
+      // السماح بتمرير رابط URL كنص
+      company.logo = req.body.logo;
+    }
+
+    // معالجة رفع صورة الغلاف (Cover Photo)
+    if (req.files && req.files.coverPhoto && req.files.coverPhoto[0]) {
+      // حذف الصورة القديمة إذا كانت محلية
+      if (company.coverPhoto && company.coverPhoto !== 'default-company-cover.png') {
+        await deleteCompanyMediaFile(company.coverPhoto);
+      }
+      company.coverPhoto = buildCompanyMediaUrl(req, req.files.coverPhoto[0].filename);
+    } else if (req.body.coverPhoto !== undefined) {
+      // السماح بتمرير رابط URL كنص
+      company.coverPhoto = req.body.coverPhoto;
     }
 
     // معالجة الموقع بشكل خاص لأنه كائن متداخل
@@ -419,16 +446,21 @@ exports.updateCompanyStatus = async (req, res) => {
 exports.getCompanyFollowers = async (req, res) => {
   try {
     const company = await Company.findById(req.params.id)
-      .populate('followers', 'profile.firstName profile.lastName profile.avatar profile.headline');
+      .populate('followers.user', 'profile.firstName profile.lastName profile.avatar profile.headline');
 
     if (!company) {
       return res.status(404).json({ success: false, message: 'الشركة غير موجودة' });
     }
 
+    const followersData = company.followers.map(f => ({
+      user: f.user,
+      followedAt: f.followedAt
+    }));
+
     res.status(200).json({
       success: true,
-      count: company.followers.length,
-      data: company.followers,
+      count: followersData.length,
+      data: followersData,
     });
   } catch (error) {
     if (error.kind === 'ObjectId') {
@@ -543,5 +575,262 @@ exports.deleteRating = async (req, res) => {
   } catch (error) {
     console.error('Delete Rating Error:', error.message);
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حذف التقييم' });
+  }
+};
+
+// @desc    جلب إحصائيات الشركة التفصيلية
+// @route   GET /api/companies/:id/stats
+// @access  Private (owner, admin, or employee)
+exports.getCompanyStats = async (req, res) => {
+  try {
+    const company = await Company.findById(req.params.id);
+
+    if (!company) {
+      return res.status(404).json({ success: false, message: 'الشركة غير موجودة' });
+    }
+
+    // التحقق من الصلاحيات
+    const isOwner = company.owner.toString() === req.user._id.toString();
+    const isAdmin = company.admins.some(a => a.toString() === req.user._id.toString());
+    const isEmployee = company.employees.some(e => e.user.toString() === req.user._id.toString());
+    
+    if (!isOwner && !isAdmin && !isEmployee) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'غير مصرح لك برؤية إحصائيات الشركة' 
+      });
+    }
+
+    const companyId = company._id;
+
+    // ==========================================
+    // 1. إحصائيات الفريق
+    // ==========================================
+    const teamStats = {
+      owner: 1,
+      admins: company.admins.length,
+      employees: company.employees.length,
+      totalTeam: 1 + company.admins.length + company.employees.length
+    };
+
+    // ==========================================
+    // 2. إحصائيات الوظائف
+    // ==========================================
+    const totalJobs = await Job.countDocuments({ company: companyId });
+    const openJobs = await Job.countDocuments({ company: companyId, status: 'Open' });
+    const closedJobs = await Job.countDocuments({ company: companyId, status: 'Closed' });
+
+    const jobsByType = await Job.aggregate([
+      { $match: { company: companyId } },
+      { $group: { _id: '$type', count: { $sum: 1 } } }
+    ]);
+
+    const jobsByWorkLevel = await Job.aggregate([
+      { $match: { company: companyId } },
+      { $group: { _id: '$workLevel', count: { $sum: 1 } } }
+    ]);
+
+    const jobsByWorkPlace = await Job.aggregate([
+      { $match: { company: companyId } },
+      { $group: { _id: '$workPlace', count: { $sum: 1 } } }
+    ]);
+
+    // ==========================================
+    // 3. إحصائيات المتقدمين
+    // ==========================================
+    const companyJobs = await Job.find({ company: companyId }).select('_id');
+    const jobIds = companyJobs.map(j => j._id);
+
+    const totalApplicants = await Job.countDocuments({ 
+      job: { $in: jobIds } 
+    });
+
+    // ==========================================
+    // 4. إحصائيات التقييمات
+    // ==========================================
+    const ratingsStats = {
+      averageRating: company.averageRating,
+      totalRatings: company.ratings.length,
+      distribution: {
+        5: company.ratings.filter(r => r.rating === 5).length,
+        4: company.ratings.filter(r => r.rating === 4).length,
+        3: company.ratings.filter(r => r.rating === 3).length,
+        2: company.ratings.filter(r => r.rating === 2).length,
+        1: company.ratings.filter(r => r.rating === 1).length
+      }
+    };
+
+    // ==========================================
+    // 5. إحصائيات المتابعين الشهرية (آخر 12 شهر)
+    // ==========================================
+    const monthlyFollowers = [];
+    const now = new Date();
+    
+    for (let i = 11; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      
+      const followersInMonth = company.followers.filter(f => {
+        const followDate = new Date(f.followedAt);
+        return followDate >= monthStart && followDate <= monthEnd;
+      }).length;
+
+      const totalFollowersUntilMonth = company.followers.filter(f => {
+        const followDate = new Date(f.followedAt);
+        return followDate <= monthEnd;
+      }).length;
+
+      monthlyFollowers.push({
+        month: monthStart.toLocaleString('ar-SA', { month: 'long', year: 'numeric' }),
+        monthKey: `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`,
+        newFollowers: followersInMonth,
+        totalFollowers: totalFollowersUntilMonth
+      });
+    }
+
+    // ==========================================
+    // 6. إحصائيات المتابعين اليومية (آخر 30 يوم)
+    // ==========================================
+    const dailyFollowers = [];
+    
+    for (let i = 29; i >= 0; i--) {
+      const dayStart = new Date(now);
+      dayStart.setDate(now.getDate() - i);
+      dayStart.setHours(0, 0, 0, 0);
+      
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const followersInDay = company.followers.filter(f => {
+        const followDate = new Date(f.followedAt);
+        return followDate >= dayStart && followDate <= dayEnd;
+      }).length;
+
+      dailyFollowers.push({
+        date: dayStart.toISOString().split('T')[0],
+        dayName: dayStart.toLocaleString('ar-SA', { weekday: 'long' }),
+        newFollowers: followersInDay
+      });
+    }
+
+    // ==========================================
+    // 7. إحصائيات نمو المتابعين
+    // ==========================================
+    const totalFollowers = company.followersCount;
+    
+    // متابعين هذا الشهر
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthFollowers = company.followers.filter(f => 
+      new Date(f.followedAt) >= thisMonthStart
+    ).length;
+
+    // متابعين الشهر الماضي
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const lastMonthFollowers = company.followers.filter(f => {
+      const followDate = new Date(f.followedAt);
+      return followDate >= lastMonthStart && followDate <= lastMonthEnd;
+    }).length;
+
+    // نسبة النمو الشهرية
+    const monthlyGrowthRate = lastMonthFollowers > 0 
+      ? Math.round(((thisMonthFollowers - lastMonthFollowers) / lastMonthFollowers) * 100)
+      : thisMonthFollowers > 0 ? 100 : 0;
+
+    // متابعين هذا الأسبوع
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const thisWeekFollowers = company.followers.filter(f => 
+      new Date(f.followedAt) >= weekStart
+    ).length;
+
+    // متابعين اليوم
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayFollowers = company.followers.filter(f => 
+      new Date(f.followedAt) >= todayStart
+    ).length;
+
+    const followerGrowth = {
+      total: totalFollowers,
+      today: todayFollowers,
+      thisWeek: thisWeekFollowers,
+      thisMonth: thisMonthFollowers,
+      lastMonth: lastMonthFollowers,
+      monthlyGrowthRate: monthlyGrowthRate,
+      averagePerDay: totalFollowers > 0 ? Math.round((totalFollowers / Math.max(1, Math.floor((now - new Date(company.createdAt)) / (1000 * 60 * 60 * 24)))) * 10) / 10 : 0
+    };
+
+    // ==========================================
+    // 8. إحصائيات نشر الوظائف الشهرية
+    // ==========================================
+    const monthlyJobs = [];
+    
+    for (let i = 11; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      
+      const jobsInMonth = await Job.countDocuments({
+        company: companyId,
+        createdAt: { $gte: monthStart, $lte: monthEnd }
+      });
+
+      monthlyJobs.push({
+        month: monthStart.toLocaleString('ar-SA', { month: 'long', year: 'numeric' }),
+        monthKey: `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`,
+        jobsPosted: jobsInMonth
+      });
+    }
+
+    // ==========================================
+    // 9. ملخص الأداء
+    // ==========================================
+    const companyAge = Math.floor((now - new Date(company.createdAt)) / (1000 * 60 * 60 * 24));
+    
+    const performanceSummary = {
+      companyAgeDays: companyAge,
+      jobsPerMonth: companyAge > 0 ? Math.round((totalJobs / (companyAge / 30)) * 10) / 10 : 0,
+      applicantsPerJob: totalJobs > 0 ? Math.round((totalApplicants / totalJobs) * 10) / 10 : 0,
+      followersPerDay: companyAge > 0 ? Math.round((totalFollowers / companyAge) * 10) / 10 : 0
+    };
+
+    // ==========================================
+    // الاستجابة النهائية
+    // ==========================================
+    res.status(200).json({
+      success: true,
+      data: {
+        company: {
+          id: company._id,
+          name: company.name,
+          industry: company.industry,
+          status: company.status,
+          isVerified: company.isVerified,
+          createdAt: company.createdAt
+        },
+        team: teamStats,
+        jobs: {
+          total: totalJobs,
+          open: openJobs,
+          closed: closedJobs,
+          byType: jobsByType,
+          byWorkLevel: jobsByWorkLevel,
+          byWorkPlace: jobsByWorkPlace
+        },
+        applicants: {
+          total: totalApplicants
+        },
+        ratings: ratingsStats,
+        followers: followerGrowth,
+        monthlyFollowers: monthlyFollowers,
+        dailyFollowers: dailyFollowers,
+        monthlyJobs: monthlyJobs,
+        performance: performanceSummary
+      }
+    });
+  } catch (error) {
+    console.error('Get Company Stats Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الإحصائيات' });
   }
 };

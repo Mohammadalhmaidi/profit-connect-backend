@@ -12,7 +12,8 @@ const {
   getCompanyFollowers, 
   addRating, 
   getCompanyRatings, 
-  deleteRating
+  deleteRating,
+  getCompanyStats
 } = require('../controllers/companyController');
 
 const {
@@ -23,7 +24,7 @@ const {
 } = require('../controllers/employeeController');
 
 const { protect, employerOnly } = require('../middleware/authMiddleware');
-const { uploadCompanyDocs } = require('../middleware/uploadMiddleware');
+const { uploadCompanyDocs, uploadCompanyMedia } = require('../middleware/uploadMiddleware');
 
 // تطبيق الحماية
 router.use(protect);
@@ -35,8 +36,13 @@ router.route('/')
 
 router.route('/:id')
   .get(getCompanyById)
-  .put(updateCompany)
+  .put(uploadCompanyMedia.fields([
+    { name: 'logo', maxCount: 1 },
+    { name: 'coverPhoto', maxCount: 1 }
+  ]), updateCompany)
   .delete(deleteCompany);
+
+router.get('/:id/stats', getCompanyStats);
 router.get('/:id/followers', getCompanyFollowers);
 router.post('/:id/follow', toggleFollowCompany);
 router.post('/:id/admins', addCompanyAdmin);
