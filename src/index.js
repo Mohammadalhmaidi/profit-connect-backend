@@ -22,6 +22,7 @@ const followRoutes = require('./routes/followRoutes'); // <-- إضافة مسا�
 const translateRoutes = require('./routes/translateRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const improveRoutes = require('./routes/improveRoutes');
+const networkRoutes = require('./routes/networkRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 
 // الاتصال بقاعدة البيانات
@@ -67,6 +68,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/translate', translateRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/improve', improveRoutes);
+app.use('/api/network', networkRoutes);
 app.use('/api/employee', employeeRoutes);
 
 // تسجيل الطلبات في موجه الأوامر أثناء التطوير

@@ -17,7 +17,8 @@ const {
   getReputationScore,
   savePost,
   unsavePost,
-  getSavedPosts
+  getSavedPosts,
+  getTopUsers
 } = require('../controllers/userController');
 
 // 2. استدعاء حارس البوابة
@@ -50,6 +51,7 @@ router.post('/:userId/follow', protect, toggleFollow);
 router.get('/:userId/followers', protect, getFollowers);
 router.get('/:userId/following', protect, getFollowing);
 router.get('/reputation-score', protect, getReputationScore);
+router.get('/leaderboard/top-users', getTopUsers);
 router.post('/saved-posts/:postId', protect, savePost);
 router.delete('/saved-posts/:postId', protect, unsavePost);
 router.get('/saved-posts', protect, getSavedPosts);

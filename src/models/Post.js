@@ -23,7 +23,7 @@ const postSchema = new mongoose.Schema(
     },
     visibility: {
       type: String,
-      enum: ['public', 'private', 'connections'],
+      enum: ['public', 'private'],
       default: 'public'
     },
     // مصفوفة تحتوي على معرّفات (IDs) الأشخاص الذين أعجبوا بالمنشور

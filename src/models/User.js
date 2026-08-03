@@ -150,13 +150,14 @@ const userSchema = new mongoose.Schema(
       date: { type: Date, default: Date.now }
     }],
     notifications: [{
-      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status'], required: true },
+      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status', 'connection_request', 'connection_accepted'], required: true },
       projectName: { type: String },
       clientName: { type: String },
       projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
       proposalStatus: { type: String, enum: ['accepted', 'rejected'] },
       postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
       companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+      senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' },
       applicationStatus: { type: String, enum: ['Pending', 'Reviewed', 'Shortlisted', 'Rejected', 'Accepted'] },
       aiProbability: { type: Number },

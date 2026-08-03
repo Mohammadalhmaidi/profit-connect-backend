@@ -420,3 +420,39 @@ exports.getReputationScore = async (req, res) => {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب نقاط السمعة' });
   }
 };
+
+// @desc    جلب أفضل المستخدمين حسب نقاط السمعة (r-score)
+// @route   GET /api/user/leaderboard/top-users
+// @access  Public (متاح للجميع)
+exports.getTopUsers = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const role = req.query.role;
+
+    const filter = { status: 'active' };
+    if (role && ['Employer', 'JobSeeker', 'FreelanceClient'].includes(role)) {
+      filter.role = role;
+    }
+
+    const users = await User.find(filter)
+      .select('username role profile.firstName profile.lastName profile.fullname profile.avatar profile.headline profile.bio profile.location profile.followersCount profile.followingCount profile.postsCount profile.rScore professional.industry professional.yearsOfExperience professional.skills createdAt')
+      .sort({ 'profile.rScore': -1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users.map(user => ({
+        _id: user._id,
+        username: user.username,
+        role: user.role,
+        profile: user.profile,
+        professional: user.professional,
+        createdAt: user.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('Get Top Users Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب أفضل المستخدمين' });
+  }
+};
