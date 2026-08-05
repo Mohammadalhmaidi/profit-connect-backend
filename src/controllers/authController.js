@@ -1,7 +1,9 @@
 
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const RefreshToken = require('../models/RefreshToken');
 const { buildAvatarUrl, deleteAvatarFile } = require('../utils/avatarStorage');
 const { formatUserResponse } = require('../utils/userResponse');
 
@@ -10,6 +12,29 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE,
   });
+};
+
+// ===== نظام الريفرش توكن =====
+const REFRESH_EXPIRE_DAYS = parseInt(process.env.JWT_REFRESH_EXPIRE_DAYS, 10) || 30;
+
+// تجزئة التوكن قبل تخزينه (لا يُخزَّن التوكن الخام في قاعدة البيانات)
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+// إنشاء ريفرش توكن جديد وتخزينه (مجزأً) في قاعدة البيانات
+const createStoredRefreshToken = async (userId, req = {}) => {
+  const refreshToken = jwt.sign({ id: userId, type: 'refresh' }, process.env.JWT_SECRET, {
+    expiresIn: `${REFRESH_EXPIRE_DAYS}d`,
+  });
+
+  await RefreshToken.create({
+    user: userId,
+    tokenHash: hashToken(refreshToken),
+    expiresAt: new Date(Date.now() + REFRESH_EXPIRE_DAYS * 24 * 60 * 60 * 1000),
+    userAgent: (req.headers && req.headers['user-agent']) || '',
+    ip: req.ip || '',
+  });
+
+  return refreshToken;
 };
 
 // @desc    إنشاء حساب مستخدم جديد (Signup)
@@ -107,11 +132,13 @@ exports.signup = async (req, res) => {
 
     // 3. إنشاء التوكن
     const token = generateToken(user._id);
+    const refreshToken = await createStoredRefreshToken(user._id, req);
 
     // 4. إرجاع الاستجابة حسب الهيكلة المطلوبة
     res.status(201).json({
       success: true,
       token,
+      refreshToken,
       user: formatUserResponse(user)
     });
 
@@ -161,11 +188,13 @@ exports.login = async (req, res) => {
 
     // 4. إنشاء التوكن
     const token = generateToken(user._id);
+    const refreshToken = await createStoredRefreshToken(user._id, req);
 
     // 5. إرجاع الاستجابة
     res.status(200).json({
       success: true,
       token,
+      refreshToken,
       user: formatUserResponse(user)
     });
 
@@ -225,6 +254,79 @@ exports.getCurrentUser = async (req, res) => {
       user: userProfile,
     });
 
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    تجديد جلسة المستخدم (تناوب الريفرش توكن)
+// @route   POST /api/auth/refresh
+// @access  Public (يحمل ريفرش توكن صالح)
+exports.refresh = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: 'الريفرش توكن مطلوب' });
+    }
+
+    const stored = await RefreshToken.findOne({ tokenHash: hashToken(refreshToken) });
+    if (!stored || stored.revokedAt) {
+      return res.status(401).json({ success: false, message: 'الريفرش توكن غير صالح أو تم إلغاؤه' });
+    }
+
+    if (stored.expiresAt < new Date()) {
+      await stored.deleteOne();
+      return res.status(401).json({ success: false, message: 'انتهت صلاحية الريفرش توكن، يرجى تسجيل الدخول مجدداً' });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    } catch (e) {
+      return res.status(401).json({ success: false, message: 'الريفرش توكن غير صالح' });
+    }
+
+    const user = await User.findById(payload.id);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'المستخدم غير موجود' });
+    }
+
+    // التناوب: إصدار توكن وصول جديد + ريفرش جديد، وإبطال القديم
+    const token = generateToken(user._id);
+    const newRefreshToken = await createStoredRefreshToken(user._id, req);
+
+    stored.revokedAt = new Date();
+    stored.replacedBy = hashToken(newRefreshToken);
+    await stored.save();
+
+    res.status(200).json({
+      success: true,
+      token,
+      refreshToken: newRefreshToken,
+      user: formatUserResponse(user),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    تسجيل الخروج وإبطال الريفرش توكن من الخادم
+// @route   POST /api/auth/logout
+// @access  Public (يحمل ريفرش توكن)
+exports.logout = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: 'الريفرش توكن مطلوب' });
+    }
+
+    const stored = await RefreshToken.findOne({ tokenHash: hashToken(refreshToken) });
+    if (stored && !stored.revokedAt) {
+      stored.revokedAt = new Date();
+      await stored.save();
+    }
+
+    res.status(200).json({ success: true, message: 'تم تسجيل الخروج وإبطال الجلسة بنجاح' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

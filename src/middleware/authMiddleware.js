@@ -16,6 +16,14 @@ exports.protect = async (req, res, next) => {
       // 3. فك تشفير التوكن والتأكد من صحته باستخدام المفتاح السري
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+      // منع استخدام ريفرش توكن كتوكن وصول (access token)
+      if (decoded.type === 'refresh') {
+        return res.status(401).json({
+          success: false,
+          message: 'هذا توكن تجديد وليس توكن وصول، استخدم POST /api/auth/refresh',
+        });
+      }
+
       // 4. البحث عن المستخدم في قاعدة البيانات باستخدام الـ ID الموجود داخل التوكن
       // ونقوم باستبعاد كلمة المرور من النتيجة لزيادة الأمان
       req.user = await User.findById(decoded.id).select('-password');

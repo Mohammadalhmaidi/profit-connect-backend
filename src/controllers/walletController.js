@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Withdrawal = require('../models/Withdrawal');
 const MoneyTransaction = require('../models/MoneyTransaction');
+const PlatformPayment = require('../models/PlatformPayment');
 
 // ============================================================
 // المحفظة المالية
@@ -11,14 +12,27 @@ const MoneyTransaction = require('../models/MoneyTransaction');
 // @access  Private
 exports.getWallet = async (req, res) => {
   try {
-    const transactions = await MoneyTransaction.find({ user: req.user.id })
-      .sort({ createdAt: -1 })
-      .limit(30);
+    const [transactions, escrowAgg] = await Promise.all([
+      MoneyTransaction.find({ user: req.user.id }).sort({ createdAt: -1 }).limit(30),
+      // مجموع الدفعات المحجوزة (held) لدى المنصة التي المستخدم هو مستلمها
+      PlatformPayment.aggregate([
+        // req.user._id (ObjectId) وليس req.user.id (نص) — لأن التجميع لا يحوّل النص تلقائياً
+        { $match: { payee: req.user._id, status: 'held' } },
+        { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const inEscrow = escrowAgg[0]?.total || 0;
+    const inEscrowCount = escrowAgg[0]?.count || 0;
 
     res.status(200).json({
       success: true,
       data: {
-        wallet: req.user.wallet,
+        wallet: {
+          ...req.user.wallet.toObject(),
+          inEscrow,        // مبلغ محجوز لدى المنصة (غير محرَّر بعد — غير قابل للسحب)
+          inEscrowCount,   // عدد الدفعات المحجوزة
+        },
         transactions,
       },
     });
