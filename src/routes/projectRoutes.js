@@ -17,6 +17,20 @@ const {
   getNotifications,
   getRecentNotifications,
   markNotificationRead,
+  getProjectOverview,
+  manageProject,
+  getProjectTeam,
+  addTeamMember,
+  updateTeamMember,
+  removeTeamMember,
+  getProjectMilestones,
+  addMilestone,
+  updateMilestone,
+  deleteMilestone,
+  getProjectPayments,
+  addPayment,
+  updatePayment,
+  deletePayment,
 } = require('../controllers/projectController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -33,6 +47,28 @@ router.get('/my-projects-with-proposals', getMyProjectsWithProposals);
 router.get('/notifications', getNotifications);
 router.get('/notifications/recent', getRecentNotifications);
 router.put('/notifications/:notificationId/read', markNotificationRead);
+
+// ===== إدارة المشروع الشاملة =====
+router.get('/:id/overview', getProjectOverview);
+router.put('/:id/manage', manageProject);
+
+// الفريق
+router.get('/:id/team', getProjectTeam);
+router.post('/:id/team', addTeamMember);
+router.put('/:id/team/:memberId', updateTeamMember);
+router.delete('/:id/team/:memberId', removeTeamMember);
+
+// المخطط الزمني (المراحل)
+router.get('/:id/milestones', getProjectMilestones);
+router.post('/:id/milestones', addMilestone);
+router.put('/:id/milestones/:milestoneId', updateMilestone);
+router.delete('/:id/milestones/:milestoneId', deleteMilestone);
+
+// الدفعات المالية
+router.get('/:id/payments', getProjectPayments);
+router.post('/:id/payments', addPayment);
+router.put('/:id/payments/:paymentId', updatePayment);
+router.delete('/:id/payments/:paymentId', deletePayment);
 
 router.route('/:id')
   .get(getProjectById)

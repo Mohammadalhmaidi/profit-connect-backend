@@ -150,7 +150,7 @@ const userSchema = new mongoose.Schema(
       date: { type: Date, default: Date.now }
     }],
     notifications: [{
-      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status', 'connection_request', 'connection_accepted'], required: true },
+      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'proposal_received', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status', 'connection_request', 'connection_accepted'], required: true },
       projectName: { type: String },
       clientName: { type: String },
       projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
