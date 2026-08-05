@@ -149,8 +149,15 @@ const userSchema = new mongoose.Schema(
       reason: { type: String, required: true },
       date: { type: Date, default: Date.now }
     }],
+    // ===== المحفظة المالية =====
+    wallet: {
+      balance:    { type: Number, default: 0, min: 0 }, // رصيد متاح للسحب
+      holding:    { type: Number, default: 0, min: 0 }, // مبلغ محجوز (طلب سحب قيد المراجعة)
+      totalEarned:    { type: Number, default: 0 },     // إجمالي ما كسبه المستخدم
+      totalWithdrawn: { type: Number, default: 0 },     // إجمالي ما سحبه المستخدم
+    },
     notifications: [{
-      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'proposal_received', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status', 'connection_request', 'connection_accepted'], required: true },
+      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'proposal_received', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status', 'connection_request', 'connection_accepted', 'payment_deposited', 'payment_released', 'payment_refunded', 'withdrawal_approved', 'withdrawal_rejected'], required: true },
       projectName: { type: String },
       clientName: { type: String },
       projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
@@ -159,6 +166,10 @@ const userSchema = new mongoose.Schema(
       companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
       senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' },
+      paymentId: { type: mongoose.Schema.Types.ObjectId, ref: 'PlatformPayment' },
+      withdrawalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Withdrawal' },
+      amount: { type: Number },
+      method: { type: String },
       applicationStatus: { type: String, enum: ['Pending', 'Reviewed', 'Shortlisted', 'Rejected', 'Accepted'] },
       aiProbability: { type: Number },
       message: { type: String },

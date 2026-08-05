@@ -17,6 +17,15 @@ const {
   deletePost,
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/authMiddleware');
+const {
+  getFinanceOverview,
+  getWithdrawals,
+  reviewWithdrawal,
+  getPayments,
+  forceRelease,
+  forceRefund,
+  updateSettings,
+} = require('../controllers/adminFinanceController');
 
 // تطبيق الحارسين على جميع المسارات في هذا الملف
 router.use(protect, admin);
@@ -41,5 +50,14 @@ router.delete('/companies/:id', deleteCompany);
 // ===== المحتوى (المنشورات) =====
 router.get('/posts', getPosts);
 router.delete('/posts/:id', deletePost);
+
+// ===== النظام المالي (المحافظ والإسكرو والسحوبات) =====
+router.get('/finance/overview', getFinanceOverview);
+router.get('/finance/withdrawals', getWithdrawals);
+router.put('/finance/withdrawals/:id', reviewWithdrawal);
+router.get('/finance/payments', getPayments);
+router.post('/finance/payments/:id/release', forceRelease);
+router.post('/finance/payments/:id/refund', forceRefund);
+router.put('/finance/settings', updateSettings);
 
 module.exports = router;

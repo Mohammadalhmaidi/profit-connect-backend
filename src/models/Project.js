@@ -43,7 +43,7 @@ const paymentSchema = new mongoose.Schema({
   paidDate: Date,
   method: {
     type: String,
-    enum: ['bank_transfer', 'cash', 'other'],
+    enum: ['bank_transfer', 'cash', 'other', 'PayPal', 'Visa', 'Mastercard', 'American Express', 'Apple Pay'],
     default: 'bank_transfer',
   },
   transactionRef: String,
