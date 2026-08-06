@@ -26,6 +26,7 @@ const networkRoutes = require('./routes/networkRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const walletRoutes = require('./routes/walletRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const portfolioRoutes = require('./routes/portfolioRoutes');
 
 // الاتصال بقاعدة البيانات
 connectDB();
@@ -74,6 +75,7 @@ app.use('/api/network', networkRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/portfolio', portfolioRoutes);
 
 // تسجيل الطلبات في موجه الأوامر أثناء التطوير
 if (process.env.NODE_ENV === 'development') {

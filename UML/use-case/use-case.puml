@@ -1,0 +1,165 @@
+@startuml use-case
+'=========================================================
+'  Use Case Diagram — منصة Profit Connect
+'  يغطي جميع الأدوار والوظائف الأساسية للنظام
+'=========================================================
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam shadowing false
+title **Profit Connect** — Use Case Diagram\n(منصة ربط أصحاب العمل والمستقلين)
+
+' ============ الفاعلون (Actors) ============
+actor "زائر\nGuest" as Guest
+actor "باحث عن عمل\nJobSeeker" as JobSeeker
+actor "صاحب عمل\nEmployer" as Employer
+actor "عميل مشاريع حرة\nFreelanceClient" as FClient
+actor "موظف شركة\nCompanyEmployee" as EmpEmployee
+actor "مشرف المنصة\nAdmin" as Admin
+
+rectangle "منطقة عامة (Public)" {
+    usecase "التسجيل في المنصة\nSign Up" as UC_Register
+    usecase "تسجيل الدخول\nLogin" as UC_Login
+    usecase "استعراض الوظائف المتاحة\nBrowse Jobs" as UC_BrowseJobs
+    usecase "استعراض بيانات الرواتب\nBrowse Salaries" as UC_Salaries
+    usecase "تصفح لوحة المتصدرين\nLeaderboard" as UC_Leaderboard
+    Guest --> UC_Register
+    Guest --> UC_Login
+    Guest --> UC_BrowseJobs
+    Guest --> UC_Salaries
+    Guest --> UC_Leaderboard
+}
+
+rectangle "الملف الشخصي والمصادقة (Auth & Profile)" {
+    usecase "إدارة الملف الشخصي\nManage Profile" as UC_Profile
+    usecase "تحديث الصورة الرمزية\nUpdate Avatar" as UC_Avatar
+    usecase "تغيير كلمة المرور\nChange Password" as UC_Password
+    usecase "تصدير بياناتي\nExport Data" as UC_Export
+    usecase "إدارة الإعدادات والتنبيهات\nManage Settings" as UC_Settings
+    usecase "تجديد الجلسة / تسجيل الخروج\nRefresh / Logout" as UC_Session
+    usecase "حساب درجة السمعة R-Score\nReputation Score" as UC_RScore
+}
+
+rectangle "الشبكة والتواصل (Network)" {
+    usecase "إرسال طلب اتصال\nSend Connection" as UC_Connect
+    usecase "قبول / رفض طلب اتصال\nAccept/Reject" as UC_AcceptConn
+    usecase "متابعة مستخدم\nFollow User" as UC_Follow
+    usecase "البحث عن المستخدمين\nSearch Users" as UC_Search
+    usecase "استكشاف المستخدمين\nDiscover Users" as UC_Discover
+    usecase "المراسلة الفورية\nMessaging" as UC_Message
+}
+
+rectangle "المحتوى (Content)" {
+    usecase "إنشاء منشور\nCreate Post" as UC_Post
+    usecase "التفاعل (إعجاب / تعليق)\nLike / Comment" as UC_Interact
+    usecase "حفظ منشور\nSave Post" as UC_Save
+    usecase "تقييم جودة المحتوى بالذكاء الاصطناعي\nAI Moderation" as UC_AIMod
+    usecase "كشف المحتوى المولد بالذكاء الاصطناعي\nAI Detection" as UC_AIDetect
+}
+
+rectangle "الوظائف والشركات (Jobs & Companies)" {
+    usecase "إنشاء شركة (مع توثيق)\nCreate Company" as UC_CoCreate
+    usecase "إدارة موظفي الشركة\nManage Employees" as UC_CoEmp
+    usecase "تقييم شركة\nRate Company" as UC_CoRate
+    usecase "متابعة شركة\nFollow Company" as UC_CoFollow
+    usecase "نشر وظيفة\nPost a Job" as UC_JobPost
+    usecase "التقديم على وظيفة\nApply to Job" as UC_JobApply
+    usecase "إدارة المتقدمين\nManage Applicants" as UC_JobMng
+}
+
+rectangle "المشاريع والدفعات (Projects & Payments)" {
+    usecase "إنشاء مشروع حر\nCreate Project" as UC_ProjCreate
+    usecase "تقديم عرض للمشروع\nSubmit Proposal" as UC_Proposal
+    usecase "قبول / رفض عرض\nAccept/Reject Proposal" as UC_ProposalDec
+    usecase "إدارة الفريق والمراحل\nManage Team/Milestones" as UC_ProjMng
+    usecase "إيداع دفعة في الحساب الضامن\nDeposit (Escrow)" as UC_Deposit
+    usecase "تحرير الدفعة (Escrow Release)\nRelease Payment" as UC_Release
+    usecase "إدارة المحفظة والسحب\nWallet / Withdraw" as UC_Wallet
+}
+
+rectangle "الإدارة (Admin)" {
+    usecase "لوحة الإحصائيات\nDashboard/Stats" as UC_Stats
+    usecase "إدارة المستخدمين (حظر/أدوار)\nManage Users" as UC_Users
+    usecase "التحقق من الشركات\nApprove Companies" as UC_CoApprove
+    usecase "مراقبة المحتوى\nModerate Posts" as UC_PostMng
+    usecase "مراجعة طلبات السحب\nReview Withdrawals" as UC_WithRev
+    usecase "التحكم بالدفعات (تحرير/استرجاع)\nEscrow Control" as UC_EscrowCtrl
+    usecase "إعدادات المنصة (عمولة)\nPlatform Settings" as UC_Platform
+}
+
+' ============ علاقات الأدوار ============
+JobSeeker -d-> UC_Profile
+JobSeeker -d-> UC_Avatar
+JobSeeker -d-> UC_Password
+JobSeeker -d-> UC_Export
+JobSeeker -d-> UC_Settings
+JobSeeker -d-> UC_Session
+JobSeeker -d-> UC_RScore
+JobSeeker -d-> UC_Connect
+JobSeeker -d-> UC_AcceptConn
+JobSeeker -d-> UC_Follow
+JobSeeker -d-> UC_Search
+JobSeeker -d-> UC_Discover
+JobSeeker -d-> UC_Message
+JobSeeker -d-> UC_Post
+JobSeeker -d-> UC_Interact
+JobSeeker -d-> UC_Save
+JobSeeker -d-> UC_AIMod
+JobSeeker -d-> UC_AIDetect
+JobSeeker -d-> UC_JobApply
+
+Employer -d-> UC_Profile
+Employer -d-> UC_Session
+Employer -d-> UC_Message
+Employer -d-> UC_Post
+Employer -d-> UC_Interact
+Employer -d-> UC_CoCreate
+Employer -d-> UC_CoEmp
+Employer -d-> UC_CoRate
+Employer -d-> UC_CoFollow
+Employer -d-> UC_JobPost
+Employer -d-> UC_JobMng
+
+FClient -d-> UC_Profile
+FClient -d-> UC_Session
+FClient -d-> UC_Message
+FClient -d-> UC_ProjCreate
+FClient -d-> UC_ProposalDec
+FClient -d-> UC_ProjMng
+FClient -d-> UC_Deposit
+FClient -d-> UC_Release
+FClient -d-> UC_Wallet
+FClient -d-> UC_Post
+
+EmpEmployee -d-> UC_JobPost
+EmpEmployee -d-> UC_JobMng
+EmpEmployee -d-> UC_ProjMng
+
+Admin -d-> UC_Stats
+Admin -d-> UC_Users
+Admin -d-> UC_CoApprove
+Admin -d-> UC_PostMng
+Admin -d-> UC_WithRev
+Admin -d-> UC_EscrowCtrl
+Admin -d-> UC_Platform
+Admin -d-> UC_Release
+
+' ============ التضمين (Include) ============
+UC_Login .> UC_Session : <<include>>\nيُنتج توكن وصول وتجديد
+UC_Register .> UC_Login : <<include>>
+UC_CoCreate .> UC_CoApprove : <<extend>>\nيحتاج موافقة الإدارة
+UC_JobApply .> UC_JobMng : <<include>>
+UC_Deposit .> UC_ProposalDec : <<include>>\nالدفع لعرض مقبول
+UC_Wallet .> UC_WithRev : <<extend>>\nالطلب يمر على الإدارة
+UC_Post .> UC_AIMod : <<include>>
+UC_Post .> UC_AIDetect : <<include>>
+UC_Proposal .> UC_Message : <<include>>
+
+' ============ التعميم (Generalization) ============
+Admin -d-|> JobSeeker
+JobSeeker -d-|> Guest
+Employer -d-|> Guest
+FClient -d-|> Guest
+EmpEmployee -d-|> JobSeeker
+
+@enduml

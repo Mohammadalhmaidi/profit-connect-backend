@@ -1,0 +1,61 @@
+@startuml ai-moderation-sequence
+'=========================================================
+'  Sequence — تقييم المحتوى بالذكاء الاصطناعي
+'  (كشف النص غير اللائق + كشف المحتوى المولّد بالذكاء الاصطناعي)
+'=========================================================
+skinparam sequenceMessageAlign center
+title **مراقبة المحتوى بالذكاء الاصطناعي** — AI Moderation Flow
+
+actor "مستخدم\nUser" as U
+participant "postRoutes" as PO
+participant "userRoutes" as UR
+control "postController" as PC
+control "userController" as UC
+control "aiEvaluationService" as AI
+control "aiDetector / layers" as LAYERS
+control "rScoreService" as RS
+control "moderationService" as MOD
+entity "Post" as PJ
+entity "User" as US
+
+== 1) نشر منشور جديد ==
+U -> PO : POST /api/posts (content + صورة/فيديو)
+PO -> PC : createPost()
+PC -> LAYERS : تحليل محلي (phrase/structure/\nlinguistic/vocabulary)
+LAYERS --> PC : درجات الطبقات الأولية
+PC -> AI : evaluateContent(content)
+AI -> AI : callAI() — نموذج محلي (LM Studio)\nثم نموذج احتياطي (OpenAI)
+alt النتيجة == -1 (محتوى غير لائق)
+  AI --> PC : score = -1
+  PC -> RS : applyScore('bad_content', -5)
+  PC -> MOD : applyWarning(userId, content, reason)
+  MOD -> US : $push warnings — حساب عدد التحذيرات
+  alt عدد التحذيرات >= 10
+    MOD -> US : حظر دائم (status: banned)
+  else >= 5
+    MOD -> US : حظر مؤقت 24 ساعة (bannedUntil)
+  else >= 3
+    MOD -> RS : تحذير نهائي (نقاط سالبة)
+  end
+else score > 0 (جودة مقبولة)
+  AI --> PC : score = 1..5
+  PC -> RS : applyScore('post_quality', score)
+end
+PC -> AI : detectAIGenerated(content) (نموذج محلي فقط)
+AI --> PC : aiProbability (0-100) + aiDetails
+PC -> PJ : Post.create({content, aiProbability, aiDetails})
+PC --> U : 201 { post }
+
+== 2) تحديث الملف الشخصي → تقييم ذكي غير متزامن ==
+U -> UR : PUT /api/user/profile
+UR -> UC : updateUserProfile()
+UC -> UC : evaluateProfileCompletion(old, new)\n(نقاط ثابتة + تقييم AI للـ bio/headline/skills)
+note right of UC
+  setImmediate → تشغيل خلفي غير متزامن
+end note
+UC --> U : 200 { user }
+UC -> AI : evaluateWithContext (bio/headline/skills)
+AI --> UC : score 0..5
+UC -> RS : applyScore(actionKey, score)
+
+@enduml

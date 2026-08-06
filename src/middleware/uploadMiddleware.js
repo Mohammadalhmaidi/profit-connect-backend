@@ -5,6 +5,7 @@ const { postsDir, videosDir, allowedImageMimeTypes, allowedVideoMimeTypes } = re
 const { companyDocsDir, allowedDocMimeTypes } = require('../utils/companyStorage');
 const { companyMediaDir, allowedImageMimeTypes: companyMediaMimeTypes } = require('../utils/companyMedia');
 const { resumesDir, allowedResumeMimeTypes } = require('../utils/resumeStorage');
+const { portfolioDir, allowedPortfolioMimeTypes } = require('../utils/portfolioStorage');
 
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -170,6 +171,31 @@ const uploadResume = multer({
   fileFilter: resumeFileFilter,
 });
 
+// ==========================================
+// Portfolio Media (Images + Videos)
+// ==========================================
+const portfolioMediaStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, portfolioDir),
+  filename: (req, file, cb) => {
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `portfolio-${req.user ? req.user._id : 'new'}-${uniqueSuffix}${fileExtension}`);
+  },
+});
+
+const portfolioMediaFileFilter = (req, file, cb) => {
+  if (!allowedPortfolioMimeTypes.includes(file.mimetype)) {
+    return cb(new Error('نوع الملف غير مدعوم. الرجاء رفع صورة (JPG/PNG/WEBP/GIF) أو فيديو (MP4/WebM/MOV/AVI)'));
+  }
+  cb(null, true);
+};
+
+const uploadPortfolioMedia = multer({
+  storage: portfolioMediaStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: portfolioMediaFileFilter,
+});
+
 module.exports = {
   uploadAvatar,
   uploadPostImage,
@@ -177,4 +203,5 @@ module.exports = {
   uploadCompanyDocs,
   uploadCompanyMedia,
   uploadResume,
+  uploadPortfolioMedia,
 };

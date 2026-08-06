@@ -1,0 +1,41 @@
+@startuml user-status-state
+'=========================================================
+'  State — حالة المستخدم والشركة والاتصال
+'=========================================================
+skinparam shadowing false
+title **الحالات التنظيمية** — User, Company & Connection States
+
+state "المستخدم\nUser" as U {
+  state "active\n(نشط)" as UActive
+  state "banned\n(موقوف)" as UBanned
+
+  [*] --> UActive : تسجيل الحساب
+  UActive --> UBanned : تحذيرات >= 10\n(حظر دائم) أو >= 5 (مؤقت 24 ساعة)
+  UBanned --> UActive : انتهاء مدة الحظر المؤقت\n(تلقائي عند كل طلب محمي)
+}
+
+state "الشركة\nCompany" as C {
+  state "Pending\n(قيد المراجعة)" as CPending
+  state "Approved\n(معتمدة)" as CApproved
+  state "Rejected\n(مرفوضة)" as CRejected
+
+  [*] --> CPending : إنشاء شركة (معلقة تلقائياً)
+  CPending --> CApproved : موافقة الإدارة
+  CPending --> CRejected : رفض الإدارة (مع سبب)
+  CRejected --> CPending : إعادة تقديم بعد التعديل
+  CApproved --> [*]
+}
+
+state "طلب الاتصال\nConnection" as N {
+  state "pending\n(معلق)" as NPending
+  state "accepted\n(مقبول)" as NAccepted
+  state "rejected\n(مرفوض)" as NRejected
+
+  [*] --> NPending : إرسال طلب اتصال
+  NPending --> NAccepted : قبول المستلم
+  NPending --> NRejected : رفض المستلم / إلغاء المرسل
+  NAccepted --> [*]
+  NRejected --> [*]
+}
+
+@enduml

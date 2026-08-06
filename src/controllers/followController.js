@@ -39,6 +39,19 @@ exports.followUser = asyncHandler(async (req, res) => {
   await currentUser.save();
   await userToFollow.save();
 
+  // إشعار للمتابَع: شخص جديد يتابعه
+  const followerName = `${currentUser.profile.firstName} ${currentUser.profile.lastName}`.trim();
+  await User.findByIdAndUpdate(userIdToFollow, {
+    $push: {
+      notifications: {
+        type: 'follow',
+        senderId: currentUserId,
+        message: `بدأ ${followerName} بمتابعتك`,
+        read: false,
+      },
+    },
+  });
+
   res.status(200).json({
     success: true,
     message: 'تمت متابعة المستخدم بنجاح',

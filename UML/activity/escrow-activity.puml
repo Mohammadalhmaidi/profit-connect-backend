@@ -1,0 +1,57 @@
+@startuml escrow-activity
+'=========================================================
+'  Activity — دورة الدفعات: إيداع → تحرير / استرجاع
+'=========================================================
+skinparam activityDiamondFontSize 14
+skinparam shadowing false
+title **دورة الدفعة المحجوزة (Escrow)** — Payment Lifecycle
+
+start
+:العميل يختار مشروعاً وعرضاً مقبولاً;
+:POST /api/payments\n{projectId, proposalId, amount, method};
+
+if (صاحب المشروع؟) then (لا)
+  :403 غير مصرح;
+  stop
+else (نعم)
+endif
+
+if (المستلم عضو نشط في الفريق؟) then (لا)
+  :400 خطأ في تحديد المستلم;
+  stop
+else (نعم)
+endif
+
+:إنشاء PlatformPayment\n(status: held);
+:إشعار المستلم (payment_deposited);
+:تحديث inEscrow للمستلم;
+
+if (طريقة التحرير) then (من العميل)
+  :PUT /api/payments/:id/release;
+else (من الإدارة)
+  :POST /api/admin/finance/payments/:id/release;
+else (استرجاع من الإدارة)
+  :POST /api/admin/finance/payments/:id/refund;
+endif
+
+if (العملية) then (تحرير release)
+  :findOneAndUpdate{status: held → released}\n(انتقال حصري — يمنع التحرير المزدوج);
+  :قراءة نسبة العمولة من الإعدادات\ngetPlatformFeePercent();
+  :حساب fee و netAmount;
+  :إضافة net إلى محفظة المستلم\n+ totalEarned;
+  :تسجيل حركة release في السجل;
+  if (fee > 0) then (نعم)
+    :تسجيل حركة fee سالبة;
+  endif
+  :إشعارات الدافع والمستلم;
+else (استرجاع refund)
+  :findOneAndUpdate{status: held → refunded}\n(انتقال حصري);
+  :إعادة المبلغ كاملاً إلى محفظة الدافع;
+  :تسجيل حركة refund في السجل;
+  :إشعارات الدافع والمستلم;
+endif
+
+:استجابة 200 للعميل / الإدارة;
+stop
+
+@enduml

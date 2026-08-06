@@ -1,0 +1,71 @@
+@startuml social-sequence
+'=========================================================
+'  Sequence — الشبكة الاجتماعية: اتصال + متابعة + مراسلة
+'=========================================================
+skinparam sequenceMessageAlign center
+title **التواصل الاجتماعي** — Connections, Follows & Messaging
+
+actor "مستخدم أ\nUser A" as UA
+actor "مستخدم ب\nUser B" as UB
+participant "networkRoutes" as NR
+participant "followRoutes" as FR
+participant "messageRoutes" as MR
+control "networkController" as NC
+control "followController" as FC
+control "messageController" as MC
+entity "Connection" as CN
+entity "User" as US
+entity "Conversation" as CV
+entity "Message" as MG
+entity "Notification" as NF
+
+== 1) إرسال طلب اتصال ==
+UA -> NR : POST /api/network/connect/:userId
+NR -> NC : sendConnectionRequest()
+NC -> CN : Connection.create({requester: A, recipient: B, pending})
+alt يوجد طلب مسبق (فهرس فريد)
+  NC --> UA : 400 { طلب مسبق }
+else
+  NC -> NF : إشعار للمستخدم B (connection_request)
+  NC --> UA : 201 { connection }
+end
+
+== 2) قبول الطلب ==
+UB -> NR : PUT /api/network/accept/:requestId
+NR -> NC : acceptConnectionRequest()
+NC -> CN : findOneAndUpdate(status: 'accepted')
+NC -> US : $inc {followingCount} لكلاهما
+NC -> NF : إشعار للمستخدم A (connection_accepted)
+NC --> UB : 200 { connection }
+
+== 3) متابعة مستخدم ==
+UA -> FR : POST /api/users/:userId/follow
+FR -> FC : followUser()
+FC -> US : $push following / followers + counts
+FC --> UA : 200 { متابعة ناجحة }
+
+== 4) بدء محادثة (يُنشئ أو يبحث عن محادثة) ==
+UA -> MR : POST /api/messages/conversations\n{participantId: B}
+MR -> MC : getOrCreateConversation()
+alt توجد محادثة سابقة
+  MC -> CV : findOne({participants})
+else
+  MC -> CV : Conversation.create({participants: [A,B]})
+end
+MC --> UA : 200 { conversation }
+
+== 5) إرسال رسالة ==
+UA -> MR : POST /api/messages/conversations/:cid
+MR -> MC : sendMessage()
+MC -> MG : Message.create({conversation, sender: A})
+MC -> CV : update({lastMessage, lastMessageAt})
+MC --> UA : 201 { message }
+
+== 6) قراءة الرسائل ==
+UB -> MR : GET /api/messages/conversations/:cid
+MR -> MC : getMessages()
+MC -> MG : find({conversation}).sort(createdAt)
+MC -> MG : updateMany(isRead: true)
+MC --> UB : 200 { messages }
+
+@enduml

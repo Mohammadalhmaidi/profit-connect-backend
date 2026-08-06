@@ -1,0 +1,123 @@
+@startuml package
+'=========================================================
+'  Package — حزم المشروع وفق بنية المجلدات
+'=========================================================
+skinparam shadowing false
+title **Profit Connect** — Package Diagram\n(تنظيم حزم المصدر)
+
+package "src" as src {
+
+  package "config" as config {
+    component [db.js — اتصال Mongoose]
+  }
+
+  package "routes" as routes {
+    component [authRoutes]
+    component [userRoutes]
+    component [followRoutes]
+    component [postRoutes]
+    component [companyRoutes]
+    component [employeeRoutes]
+    component [jobRoutes]
+    component [salaryRoutes]
+    component [projectRoutes]
+    component [messageRoutes]
+    component [networkRoutes]
+    component [walletRoutes]
+    component [paymentRoutes]
+    component [adminRoutes]
+    component [translateRoutes]
+    component [improveRoutes]
+  }
+
+  package "controllers" as controllers {
+    component [authController]
+    component [userController]
+    component [followController]
+    component [postController]
+    component [companyController]
+    component [employeeController]
+    component [jobController]
+    component [salaryController]
+    component [projectController]
+    component [messageController]
+    component [networkController]
+    component [walletController]
+    component [paymentController]
+    component [adminController]
+    component [adminFinanceController]
+    component [translateController]
+    component [improveController]
+  }
+
+  package "models" as models {
+    component [User, Company, Post, Job]
+    component [JobApplication, Salary]
+    component [Project, Proposal, PlatformPayment]
+    component [Conversation, Message, Connection]
+    component [Wallet-related: Withdrawal,\nMoneyTransaction, Setting]
+    component [ScoreHistory, RefreshToken]
+  }
+
+  package "services" as services {
+    component [moneyService]
+    component [aiEvaluationService]
+    component [moderationService]
+    component [profileScoreService]
+    component [rScoreService]
+  }
+
+  package "middleware" as middleware {
+    component [authMiddleware]
+    component [uploadMiddleware]
+    component [aiDetector]
+    component [linguisticAnalyzer]
+    component [phraseDetector]
+    component [structureAnalyzer]
+    component [vocabularyAnalyzer]
+    component [rateLimiter]
+  }
+
+  package "utils" as utils {
+    component [avatarStorage]
+    component [companyMedia]
+    component [companyStorage]
+    component [postImageStorage]
+    component [resumeStorage]
+    component [sanitizeContent]
+    component [userResponse]
+  }
+
+  component [index.js — نقطة الدخول]
+}
+
+package "root" as root {
+  component [.env — متغيرات البيئة]
+  component [package.json]
+  component [uploads/ — الملفات المرفوعة]
+  component [tests/ — اختبارات]
+  component [docs/ — التوثيق]
+  component [constants/ + data/]
+}
+
+' ==== التبعيات ====
+index.js --> config : يستدعي connectDB
+index.js --> routes : يثبّت المسارات
+routes --> controllers : يوجّه الطلبات
+routes --> middleware : يحمي المسارات
+controllers --> models : يقرأ/يكتب
+controllers --> services : منطق الأعمال
+controllers --> utils : تخزين/تنظيف
+services --> models : بيانات + سجل الحركات
+middleware --> models : جلب المستخدم
+utils --> middleware : إعدادات التخزين
+models --> config : Mongoose
+
+note bottom of services
+  rScoreService: نقاط السمعة
+  moneyService: سجل الحركات + العمولات
+  aiEvaluationService: LM Studio + OpenAI
+  moderationService: التحذيرات والحظر
+end note
+
+@enduml

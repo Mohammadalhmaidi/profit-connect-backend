@@ -1,0 +1,46 @@
+@startuml deployment
+'=========================================================
+'  Deployment — نشر النظام عبر الخدمات السحابية
+'=========================================================
+skinparam nodeStyle rectangle
+skinparam shadowing false
+title **Profit Connect** — Deployment Diagram\n(نموذج نشر نموذجي لبيئة الإنتاج)
+
+cloud "الإنترنت" as internet
+
+node "عميل الويب\nReact Frontend (Vite)" as client_web
+node "عميل الجوال\nMobile Client" as client_mob
+
+node "شبكة التطبيق\nApplication VPS / Container" as app {
+  rectangle "HTTP Server" as http
+  component "Express App\n(src/index.js)" as express
+  component "Static Assets\n/uploads + ملفات مرفوعة" as uploads
+}
+
+node "قاعدة البيانات\nMongoDB Atlas / Self-hosted" as db {
+  database "Collections\nusers, companies, posts, jobs,\nprojects, proposals, payments,\nwithdrawals, transactions, ..." as mongo
+}
+
+node "خدمات الذكاء الاصطناعي\nAI Services" as ai {
+  component "LM Studio (محلي)\nhttp://127.0.0.1:1234/v1" as lmstudio
+  component "OpenAI API\n(النموذج الاحتياطي)" as openai
+}
+
+node "إدارة السرية\nSecrets & Config" as env {
+  component ".env\nJWT_SECRET / DB_URI / API_KEYS / CLIENT_URL / PORT"
+}
+
+internet --> client_web : HTTPS
+internet --> client_mob : HTTPS
+
+client_web --> http : REST /api/*
+client_mob --> http : REST /api/*
+
+http --> express : توجيه الطلبات
+express --> uploads : ملفات مرفوعة (multer)
+express --> mongo : Mongoose ODM\n(ODBC/JDBC-like بروتوكول mongodb://)
+express --> lmstudio : LLM local (POST /v1/chat/completions)
+express --> openai : Fallback LLM (HTTPS)
+express --> env : process.env
+
+@enduml

@@ -10,9 +10,12 @@ const {
   getMyConnections,
   removeConnection,
   getConnectionStatus,
+  getSentRequests,
+  getNetworkStats,
   getMyFollowers,
   getMyFollowing,
   searchUsers,
+  discoverUsers,
 } = require('../controllers/networkController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -22,6 +25,7 @@ router.use(protect);
 
 // ===== البحث =====
 router.get('/search', searchUsers);
+router.get('/discover', discoverUsers);
 
 // ===== المتابعون =====
 router.get('/followers', getMyFollowers);
@@ -30,6 +34,8 @@ router.get('/following', getMyFollowing);
 // ===== الاتصالات =====
 router.get('/connections', getMyConnections);
 router.get('/requests', getIncomingRequests);
+router.get('/sent-requests', getSentRequests);
+router.get('/stats', getNetworkStats);
 router.get('/status/:userId', getConnectionStatus);
 
 router.post('/connect/:userId', sendConnectionRequest);

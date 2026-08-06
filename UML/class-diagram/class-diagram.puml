@@ -1,0 +1,378 @@
+@startuml class-diagram
+'=========================================================
+'  Class Diagram — نماذج قاعدة بيانات Profit Connect (Mongoose)
+'=========================================================
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+title **Profit Connect** — Class Diagram\n(نماذج MongoDB / Mongoose)
+
+class User {
+  - email : String (unique)
+  - password : String
+  - username : String
+  - role : Role
+  - status : Status
+  - bannedUntil : Date
+  - isActive : Boolean
+  - isVerified : Boolean
+  - warnings : Warning[]
+  - profile : Profile
+  - professional : Professional
+  - employerProfile : EmployerProfile
+  - companyEmployeeProfile : CompanyEmployeeProfile
+  - wallet : Wallet
+  - notifications : Notification[]
+  - savedPosts : ObjectId[]
+  + matchPassword(pw) : Boolean
+}
+
+class Profile {
+  - firstName : String
+  - lastName : String
+  - fullname : String
+  - headline : String
+  - bio : String
+  - avatar : String
+  - location : String
+  - socialLinks : SocialLinks
+  - followers : ObjectId[]
+  - following : ObjectId[]
+  - followersCount : Number
+  - followingCount : Number
+  - postsCount : Number
+  - rScore : Number
+}
+
+class Wallet {
+  - balance : Number
+  - holding : Number
+  - totalEarned : Number
+  - totalWithdrawn : Number
+}
+
+enum Role {
+  Employer
+  JobSeeker
+  Admin
+  FreelanceClient
+  CompanyEmployee
+}
+
+enum Status {
+  active
+  banned
+}
+
+class Company {
+  - name : String (unique)
+  - description : String
+  - industry : String
+  - location : Location
+  - companySize : String
+  - foundedYear : Number
+  - logo : String
+  - coverPhoto : String
+  - website : String
+  - contactEmail : String
+  - isVerified : Boolean
+  - verificationDocs : String[]
+  - rejectionReason : String
+  - status : CompanyStatus
+  - owner : ObjectId
+  - admins : ObjectId[]
+  - employees : EmployeeRef[]
+  - followers : FollowerRef[]
+  - followersCount : Number
+  - ratings : RatingRef[]
+  - averageRating : Number
+  + calcAverageRating() : void
+}
+
+enum CompanyStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+class Post {
+  - user : ObjectId
+  - content : String
+  - image : String
+  - video : String
+  - visibility : String
+  - likes : ObjectId[]
+  - comments : Comment[]
+  - aiProbability : Number
+  - aiDetails : AIDetails
+}
+
+class AIDetails {
+  - language : String
+  - modelProbability : Number
+  - layers : AILayers
+  - signals : String[]
+}
+
+class Job {
+  - title : String
+  - description : String
+  - company : ObjectId
+  - location : String
+  - type : JobType
+  - workLevel : WorkLevel
+  - workPlace : WorkPlace
+  - salary : SalaryRange
+  - requirements : String[]
+  - responsibilities : String[]
+  - status : JobStatus
+  - postedBy : ObjectId
+}
+
+enum JobStatus {
+  Open
+  Closed
+}
+
+class JobApplication {
+  - job : ObjectId
+  - applicant : ObjectId
+  - coverLetter : String
+  - resume : String
+  - status : AppStatus
+}
+
+enum AppStatus {
+  Pending
+  Reviewed
+  Shortlisted
+  Rejected
+  Accepted
+}
+
+class Project {
+  - title : String
+  - description : String
+  - category : String
+  - skills : String[]
+  - budget : Budget
+  - deadline : Date
+  - status : ProjectStatus
+  - client : ObjectId
+  - assignedTo : ObjectId
+  - attachments : String[]
+  - startDate : Date
+  - endDate : Date
+  - progress : Number
+  - team : TeamMember[]
+  - milestones : Milestone[]
+  - payments : ProjectPayment[]
+  - paymentsConfig : PaymentsConfig
+}
+
+enum ProjectStatus {
+  Open
+  InProgress
+  Completed
+  Cancelled
+}
+
+class Milestone {
+  - title : String
+  - description : String
+  - startDate : Date
+  - endDate : Date
+  - status : MilestoneStatus
+  - assignedTo : ObjectId
+  - progress : Number
+}
+
+enum MilestoneStatus {
+  NotStarted
+  InProgress
+  Completed
+}
+
+class Proposal {
+  - project : ObjectId
+  - freelancer : ObjectId
+  - bidAmount : Number
+  - deliveryTime : String
+  - coverLetter : String
+  - status : ProposalStatus
+}
+
+enum ProposalStatus {
+  Pending
+  Accepted
+  Rejected
+}
+
+class PlatformPayment {
+  - project : ObjectId
+  - payer : ObjectId
+  - payee : ObjectId
+  - proposal : ObjectId
+  - amount : Number
+  - method : PayMethod
+  - fee : Number
+  - netAmount : Number
+  - status : PayStatus
+  - releasedAt : Date
+  - refundedAt : Date
+}
+
+enum PayStatus {
+  held
+  released
+  refunded
+  cancelled
+}
+
+class Withdrawal {
+  - user : ObjectId
+  - amount : Number
+  - method : String
+  - accountDetails : BankDetails
+  - status : WithdrawStatus
+  - processedAt : Date
+  - adminNote : String
+}
+
+enum WithdrawStatus {
+  pending
+  processed
+  rejected
+  cancelled
+}
+
+class MoneyTransaction {
+  - user : ObjectId
+  - type : TxType
+  - amount : Number
+  - balanceAfter : Number
+  - platformPayment : ObjectId
+  - withdrawal : ObjectId
+  - project : ObjectId
+  - description : String
+}
+
+enum TxType {
+  deposit
+  release
+  fee
+  refund
+  withdraw
+  withdraw_refund
+  withdraw_processed
+  manual
+}
+
+class Connection {
+  - requester : ObjectId
+  - recipient : ObjectId
+  - status : ConnStatus
+}
+
+enum ConnStatus {
+  pending
+  accepted
+  rejected
+}
+
+class Conversation {
+  - participants : ObjectId[]
+  - lastMessage : ObjectId
+  - lastMessageAt : Date
+}
+
+class Message {
+  - conversation : ObjectId
+  - sender : ObjectId
+  - content : String
+  - isRead : Boolean
+}
+
+class Salary {
+  - title : String
+  - category : String
+  - country : String
+  - experienceLevel : ExpLevel
+  - minSalaryUSD : Number
+  - maxSalaryUSD : Number
+  - medianSalaryUSD : Number
+}
+
+class ScoreHistory {
+  - user : ObjectId
+  - actionKey : String
+  - points : Number
+  - description : String
+}
+
+class Setting {
+  - key : String (unique)
+  - value : Mixed
+}
+
+class RefreshToken {
+  - token : String
+  - user : ObjectId
+  - expiresAt : Date
+}
+
+' ============ العلاقات ============
+User "1" *-- "1" Profile : profile
+User "1" *-- "1" Wallet : wallet
+User *-- "*" RefreshToken : has
+Company "1" o-- "*" User : owner/admins
+Company "1" o-- "*" Job : posts
+Job "1" -- "1..*" JobApplication : has
+User "1" -- "*" JobApplication : submits
+Project "1" -- "1" User : client
+Project "1" -- "0..*" Proposal : receives
+Project "1" -- "1..*" Milestone : milestones
+Project "1" -- "1..*" ProjectPayment : payments
+Proposal "1" -- "1" User : freelancer
+Proposal "1" -- "0..*" PlatformPayment : funds
+PlatformPayment "1" -- "1" User : payer
+PlatformPayment "1" -- "1" User : payee
+PlatformPayment "1" -- "0..*" MoneyTransaction : logged
+Withdrawal "1" -- "1" User : user
+Withdrawal "1" -- "0..*" MoneyTransaction : logged
+Connection "1" -- "1" User : requester
+Connection "1" -- "1" User : recipient
+Conversation "1" -- "0..*" Message : contains
+Conversation "1" -- "1..*" User : participants
+Post "1" -- "1" User : author
+Salary "1" -- "1" Company : benchmark
+ScoreHistory "1" -- "1" User : user
+
+' ============ العلاقات الوراثية للتعدادات ============
+User --> Role
+User --> Status
+Company --> CompanyStatus
+Job --> JobStatus
+JobApplication --> AppStatus
+Project --> ProjectStatus
+Milestone --> MilestoneStatus
+Proposal --> ProposalStatus
+PlatformPayment --> PayStatus
+Withdrawal --> WithdrawStatus
+Connection --> ConnStatus
+MoneyTransaction --> TxType
+
+note bottom of PlatformPayment
+  حساب ضامن (Escrow):
+  held --> released (تحرير + عمولة)
+  held --> refunded (استرجاع)
+  الانتقال حصري عبر findOneAndUpdate
+  في services/moneyService.js
+end note
+
+note bottom of User
+  أدوار النظام: Employer, JobSeeker,
+  Admin, FreelanceClient, CompanyEmployee
+  الوسم: #status #wallet #notifications
+end note
+
+@enduml

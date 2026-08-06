@@ -1,0 +1,210 @@
+@startuml erd
+'=========================================================
+'  ERD — علاقات الكيانات بين جداول MongoDB
+'  (بدون حقول تفصيلية، فقط الكيانات والعلاقات والبطاقات)
+'=========================================================
+skinparam linetype ortho
+skinparam shadowing false
+title **Profit Connect** — Entity Relationship Diagram
+
+entity "User" as user {
+  *_id : ObjectId <<PK>>
+  --
+  email : string <<UQ>>
+  username : string <<UQ>>
+  role : enum
+  status : enum
+  wallet.balance : number
+  wallet.holding : number
+  savedPosts[] : ObjectId
+  notifications[] : embedded
+  warnings[] : embedded
+}
+
+entity "RefreshToken" as refreshtoken {
+  *_id : ObjectId <<PK>>
+  --
+  token : string <<UQ>>
+  user : ObjectId <<FK>>
+  expiresAt : date
+}
+
+entity "Company" as company {
+  *_id : ObjectId <<PK>>
+  --
+  name : string <<UQ>>
+  status : enum <<IX>>
+  owner : ObjectId <<FK>>
+  employees[] : embedded refs
+  ratings[] : embedded
+  followers[] : embedded
+}
+
+entity "Job" as job {
+  *_id : ObjectId <<PK>>
+  --
+  title : string <<IX>>
+  company : ObjectId <<FK>>
+  status : enum <<IX>>
+  postedBy : ObjectId <<FK>>
+}
+
+entity "JobApplication" as jobapp {
+  *_id : ObjectId <<PK>>
+  --
+  job : ObjectId <<FK>>
+  applicant : ObjectId <<FK>>
+  status : enum
+  } <<UQ>> (job, applicant)
+
+entity "Project" as project {
+  *_id : ObjectId <<PK>>
+  --
+  title : string
+  category : string <<IX>>
+  status : enum <<IX>>
+  client : ObjectId <<FK>>
+  team[] : embedded refs
+  milestones[] : embedded
+  payments[] : embedded
+}
+
+entity "Proposal" as proposal {
+  *_id : ObjectId <<PK>>
+  --
+  project : ObjectId <<FK>>
+  freelancer : ObjectId <<FK>>
+  bidAmount : number
+  status : enum
+  } <<UQ>> (project, freelancer)
+
+entity "PlatformPayment" as payment {
+  *_id : ObjectId <<PK>>
+  --
+  project : ObjectId <<FK>>
+  payer : ObjectId <<FK>>
+  payee : ObjectId <<FK>>
+  proposal : ObjectId <<FK>>
+  amount : number
+  fee : number
+  status : enum <<IX>>
+}
+
+entity "Withdrawal" as withdrawal {
+  *_id : ObjectId <<PK>>
+  --
+  user : ObjectId <<FK>>
+  amount : number
+  status : enum <<IX>>
+  accountDetails : embedded
+}
+
+entity "MoneyTransaction" as tx {
+  *_id : ObjectId <<PK>>
+  --
+  user : ObjectId <<FK>>
+  type : enum
+  amount : number
+  balanceAfter : number
+  platformPayment : ObjectId <<FK>>
+  withdrawal : ObjectId <<FK>>
+  project : ObjectId <<FK>>
+} <<IX>> (user, createdAt)
+
+entity "Connection" as connection {
+  *_id : ObjectId <<PK>>
+  --
+  requester : ObjectId <<FK>>
+  recipient : ObjectId <<FK>>
+  status : enum
+  } <<UQ>> (requester, recipient)
+
+entity "Conversation" as conversation {
+  *_id : ObjectId <<PK>>
+  --
+  participants[] : ObjectId <<FK>>
+  lastMessage : ObjectId <<FK>>
+}
+
+entity "Message" as message {
+  *_id : ObjectId <<PK>>
+  --
+  conversation : ObjectId <<FK>>
+  sender : ObjectId <<FK>>
+  content : string
+  isRead : boolean
+} <<IX>> (conversation, createdAt)
+
+entity "Post" as post {
+  *_id : ObjectId <<PK>>
+  --
+  user : ObjectId <<FK>>
+  content : string
+  aiProbability : number
+  likes[] : ObjectId
+  comments[] : embedded
+}
+
+entity "Salary" as salary {
+  *_id : ObjectId <<PK>>
+  --
+  title : string <<IX>>
+  country : string <<IX>>
+  category : string <<IX>>
+  medianSalaryUSD : number
+} <<IX>> (title, country)
+
+entity "ScoreHistory" as score {
+  *_id : ObjectId <<PK>>
+  --
+  user : ObjectId <<FK>>
+  actionKey : string <<IX>>
+  points : number
+}
+
+entity "Setting" as setting {
+  *_id : ObjectId <<PK>>
+  --
+  key : string <<UQ>>
+  value : mixed
+}
+
+' ============ العلاقات ============
+user ||--o{ refreshtoken : "يحصل على"
+user ||--o{ company : "يملك (owner)"
+user }o--o{ company : "موظف/تابع"
+company ||--o{ job : "ينشر"
+job ||--o{ jobapp : "يستقبل"
+user ||--o{ jobapp : "يقدّم على"
+user ||--o{ project : "عميل/مستقل"
+project ||--o{ proposal : "يستقبل"
+user ||--o{ proposal : "يقدّم عرضاً"
+project ||--o{ payment : "مدفوع بموجبه"
+proposal ||--o{ payment : "أساس الدفعة"
+user ||--o{ payment : "دافع/مستلم"
+user ||--o{ withdrawal : "يطلب سحباً"
+withdrawal ||--o{ tx : "يسجّل حركة"
+payment ||--o{ tx : "يسجّل حركة"
+project ||--o{ tx : "يسجّل حركة"
+user ||--o{ tx : "لديه سجل"
+user ||--o{ connection : "مرسل"
+user ||--o{ connection : "مستقبل"
+user ||--o{ conversation : "مشارك"
+conversation ||--o{ message : "يحتوي"
+user ||--o{ message : "مرسل"
+user ||--o{ post : "مؤلف"
+user ||--o{ score : "يتراكم لديه"
+post ||--o{ user : "محفوظة لدى"
+
+note bottom of payment
+  العلاقة مع الحساب الضامن:
+  held → released (تحرير + عمولة)
+  held → refunded (استرجاع)
+end note
+
+note bottom of job
+  الفهرس الفريد (job, applicant)
+  يمنع التقديم المزدوج لنفس الوظيفة
+end note
+
+@enduml
