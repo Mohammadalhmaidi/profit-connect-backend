@@ -1,0 +1,81 @@
+@startuml auth-sequence
+'=========================================================
+'  Sequence — تدفق المصادقة (التسجيل، الدخول، تجديد التوكن)
+'=========================================================
+skinparam sequenceMessageAlign center
+title **تسجيل الدخول والمصادقة** — Authentication Flow
+
+actor "مستخدم\nUser" as U
+participant "Client" as C
+boundary "API Gateway\nExpress (index.js)" as GW
+participant "authRoutes" as RT
+participant "authMiddleware\nprotect/admin" as MW
+control "authController" as AC
+entity "User Model" as UM
+entity "RefreshToken" as RTK
+entity "RScoreService" as RS
+
+== 1) التسجيل (Signup) ==
+U -> C : POST /api/auth/signup\n(البيانات + avatar)
+C -> GW : HTTP Request
+GW -> RT : /api/auth
+RT -> RT : uploadAvatar.single('avatar')
+RT -> AC : signup()
+AC -> UM : User.create({...})
+AC <-- UM : مستخدم جديد (كلمة مرور مشفرة bcrypt)
+AC -> RTK : RefreshToken.create(token)
+AC -> RS : applyScore('JOIN')\nنقاط الانضمام
+AC <-- RS : done
+AC --> C : 201 { user, accessToken, refreshToken }
+note over U,C : يتم تخزين التوكن في العميل
+
+== 2) تسجيل الدخول (Login) ==
+U -> C : POST /api/auth/login\n(email + password)
+C -> GW : HTTP Request
+GW -> RT : /api/auth
+RT -> AC : login()
+AC -> UM : User.findOne({email}).select('+password')
+UM --> AC : user
+alt كلمة المرور صحيحة (matchPassword)
+  AC -> RTK : RefreshToken.create(token)
+  AC --> C : 200 { accessToken, refreshToken, user }
+else كلمة مرور خاطئة
+  AC --> C : 401 { message: 'بيانات غير صحيحة' }
+end
+
+== 3) طلب محمي (Access Token) ==
+U -> C : GET /api/user/profile
+C -> GW : Authorization: Bearer <accessToken>
+GW -> MW : protect()
+MW -> MW : jwt.verify(token, JWT_SECRET)
+alt توكن صالح
+  MW -> UM : User.findById(decoded.id)
+  UM --> MW : user (بدون password)
+  alt المستخدم محظور
+    MW --> C : 403 { رسالة الحظر }
+  else
+    MW -> AC : next() → getCurrentUser()
+    AC --> C : 200 { user }
+  end
+else توكن منتهي/غير صالح
+  MW --> C : 401 { انتهت الجلسة }
+  C -> GW : POST /api/auth/refresh (refreshToken)
+  GW -> RT : refresh()
+  RT -> RTK : RefreshToken.findOne({token})
+  alt صالح وغير منتهي
+    RT -> RTK : حذف التوكن القديم
+    RT -> RTK : RefreshToken.create(جديد)
+    RT --> C : 200 { accessToken جديد }
+  else غير صالح
+    RT --> C : 401 { يجب إعادة الدخول }
+  end
+end
+
+== 4) تسجيل الخروج (Logout) ==
+U -> C : POST /api/auth/logout
+C -> GW : Authorization: Bearer <refreshToken>
+GW -> RT : logout()
+RT -> RTK : deleteOne({token})
+RT --> C : 200 { تم تسجيل الخروج }
+
+@enduml

@@ -11,6 +11,8 @@ const SCORE_RULES = {
   RECEIVE_LIKE: { points: 1, type: 'DAILY_LIMIT', maxDaily: 50 },
   ADD_COMMENT: { points: 2, type: 'DAILY_LIMIT', maxDaily: 20 },
   FOLLOW_COMPANY: { points: 1, type: 'DAILY_LIMIT', maxDaily: 10 },
+  ADD_PORTFOLIO_ITEM: { points: 10, type: 'DAILY_LIMIT', maxDaily: 30 },
+  RECEIVE_PORTFOLIO_LIKE: { points: 1, type: 'DAILY_LIMIT', maxDaily: 50 },
   PENALTY_VIOLATION: { points: -20, type: 'UNLIMITED' },
   bad_content:        { points: -5,  type: 'UNLIMITED' },
 

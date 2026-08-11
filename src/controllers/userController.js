@@ -305,6 +305,20 @@ exports.toggleFollow = async (req, res) => {
       // متابعة
       await User.findByIdAndUpdate(targetId,  { $addToSet: { 'profile.followers': currentId }, $inc: { 'profile.followersCount': 1 } });
       await User.findByIdAndUpdate(currentId, { $addToSet: { 'profile.following': targetId },  $inc: { 'profile.followingCount': 1 } });
+
+      // إشعار للمتابَع: شخص جديد يتابعه
+      const followerName = `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim();
+      await User.findByIdAndUpdate(targetId, {
+        $push: {
+          notifications: {
+            type: 'follow',
+            senderId: currentId,
+            message: `بدأ ${followerName} بمتابعتك`,
+            read: false,
+          },
+        },
+      });
+
       return res.status(200).json({ success: true, following: true, message: 'تمت المتابعة بنجاح' });
     }
   } catch (error) {

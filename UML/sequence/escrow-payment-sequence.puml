@@ -1,0 +1,88 @@
+@startuml escrow-sequence
+'=========================================================
+'  Sequence — دورة المشروع الحر مع الحساب الضامن (Escrow)
+'  يغطي: إنشاء مشروع → عروض → دفعة → تحرير → محفظة
+'=========================================================
+skinparam sequenceMessageAlign center
+title **المشاريع الحرة والدفعات (Escrow)** — Freelance & Payment Flow
+
+actor "عميل\nClient (FreelanceClient)" as CL
+actor "مستقل\nFreelancer" as FL
+participant "projectRoutes" as PR
+participant "paymentRoutes" as PY
+control "projectController" as PC
+control "paymentController" as PYC
+control "moneyService" as MS
+entity "Project" as PJ
+entity "Proposal" as PP
+entity "PlatformPayment" as PLP
+entity "User (Wallet)" as UW
+entity "MoneyTransaction" as MT
+entity "Notification" as NF
+
+== 1) إنشاء المشروع ==
+CL -> PR : POST /api/projects
+PR -> PC : createProject()
+PC -> PJ : Project.create({client, ...})
+PC --> CL : 201 { project }
+
+== 2) تقديم عرض (متوازي لمستقلين) ==
+FL -> PR : POST /api/projects/:id/proposals
+PR -> PC : submitProposal()
+PC -> PJ : Project.findById(id) — يجب أن تكون Open
+PC -> PP : Proposal.create({project, freelancer, bid})
+PC -> NF : إشعار للعميل (proposal_received)
+PC --> FL : 201 { proposal }
+
+== 3) قبول العرض ==
+CL -> PR : POST /api/projects/:id/proposals/:pid/accept
+PR -> PC : acceptProposal()
+PC -> PP : Proposal.findOneAndUpdate(status: Accepted)
+PC -> PJ : Project.update({assignedTo, status: InProgress})
+PC -> PJ : Project.update({$push: team})
+PC -> NF : إشعار للمستقل (proposal_accepted)
+PC --> CL : 200 { proposal }
+
+== 4) إيداع دفعة في الحساب الضامن ==
+CL -> PY : POST /api/payments\n{projectId, proposalId, amount, method}
+PY -> PYC : createDeposit()
+PYC -> PJ : Project.findById(projectId)
+alt ليس صاحب المشروع
+  PYC --> CL : 403 { غير مصرح }
+else عرض غير مقبول
+  PYC --> CL : 400 { لا يمكن الدفع إلا لعرض مقبول }
+else
+  PYC -> PJ : التحقق أن المستلم عضو في الفريق
+  PYC -> PLP : PlatformPayment.create(status: 'held')
+  PYC -> NF : إشعار للمستقل (payment_deposited)
+  PYC --> CL : 201 { payment: held }
+end
+
+== 5) تحرير الدفعة إلى محفظة المستلم ==
+CL -> PY : PUT /api/payments/:id/release
+PY -> PYC : releasePayment()
+PYC -> MS : releasePayment(paymentId)
+MS -> PLP : findOneAndUpdate({status:'held'} -> 'released')
+alt الدفعة محررة مسبقاً
+  MS --> PYC : { error: 'تم التحرير من قبل' }
+else
+  MS -> MS : getPlatformFeePercent() → نسبة العمولة
+  MS -> MS : computeFee(amount, %) → fee و netAmount
+  MS -> PLP : update({fee, netAmount})
+  MS -> UW : $inc {wallet.balance: net,\n wallet.totalEarned: net}
+  MS -> MT : create({type:'release', amount: net})
+  MS -> MT : create({type:'fee', amount: -fee})
+  MS --> PYC : { payment, net, fee }
+  PYC -> NF : إشعارات للدافع والمستلم (payment_released)
+  PYC --> CL : 200 { تم التحرير }
+end
+
+== 6) عرض المحفظة ==
+FL -> PY : GET /api/wallet
+PY -> PYC : getWallet()
+PYC -> UW : User.findById — wallet
+PYC -> MT : MoneyTransaction.find (آخر 30 حركة)
+PYC -> PLP : aggregate({payee: me, status:'held'})
+PYC --> FL : 200 { wallet + inEscrow + transactions }
+
+@enduml

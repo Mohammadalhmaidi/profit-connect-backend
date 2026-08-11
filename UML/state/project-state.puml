@@ -1,0 +1,29 @@
+@startuml project-state
+'=========================================================
+'  State — حالات المشروع الحر (Project)
+'=========================================================
+skinparam shadowing false
+title **حالات المشروع الحر** — Project State Machine
+
+state "Open\n(مفتوح للعروض)" as Open
+state "InProgress\n(قيد التنفيذ)" as InProgress
+state "Completed\n(مكتمل)" as Completed
+state "Cancelled\n(ملغى)" as Cancelled
+
+[*] --> Open : إنشاء مشروع (Project.create)
+Open --> InProgress : قبول عرض مقبول\n(assignee + team) [تعيين مستقل/فريق]
+Open --> Cancelled : حذف/إلغاء من العميل
+InProgress --> Completed : اكتمال المشروع\n(completeProject — patch)
+InProgress --> Cancelled : إلغاء المشروع
+Completed --> [*]
+Cancelled --> [*]
+
+note bottom of Open
+  خلال Open فقط يمكن:\n- تقديم عروض (Proposals)\n- إيداع دفعات (Escrow)
+end note
+
+note bottom of InProgress
+  يمكن إضافة:\n- مراحل (Milestones)\n- دفعات (Payments)\n- أعضاء فريق (Team)
+end note
+
+@enduml

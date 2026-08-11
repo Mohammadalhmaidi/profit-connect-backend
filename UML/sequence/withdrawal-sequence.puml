@@ -1,0 +1,75 @@
+@startuml withdrawal-sequence
+'=========================================================
+'  Sequence — طلب السحب من المحفظة ومراجعته من الإدارة
+'=========================================================
+skinparam sequenceMessageAlign center
+title **السحب من المحفظة** — Wallet Withdrawal Flow
+
+actor "مستخدم\nUser" as U
+actor "مشرف\nAdmin" as A
+participant "walletRoutes" as WR
+participant "adminRoutes" as AR
+control "walletController" as WC
+control "adminFinanceController" as AFC
+entity "Withdrawal" as WD
+entity "User (Wallet)" as UW
+entity "MoneyTransaction" as MT
+entity "Notification" as NF
+entity "Setting" as ST
+
+== 1) طلب السحب ==
+U -> WR : POST /api/wallet/withdraw\n{amount, method, accountDetails}
+WR -> WC : requestWithdrawal()
+WC -> WD : Withdrawal.create(status: 'pending')
+WC -> UW : findOneAndUpdate({balance >= amount},\n$inc {balance: -amount, holding: +amount})
+alt الرصيد غير كافٍ (شرط ذري)
+  WC -> WD : Withdrawal.update(status: 'cancelled')
+  WC --> U : 400 { رصيدك غير كافٍ }
+else
+  WC -> MT : create({type:'withdraw', amount: -amount})
+  WC --> U : 201 { withdrawal: pending }
+end
+
+== 2) مراجعة الطلب من الإدارة ==
+A -> AR : GET /api/admin/finance/withdrawals?status=pending
+AR -> AFC : getWithdrawals()
+AFC --> A : قائمة طلبات السحب المعلقة
+
+A -> AR : PUT /api/admin/finance/withdrawals/:id\n{action: 'approve' | 'reject', note}
+AR -> AFC : reviewWithdrawal()
+AFC -> WD : findOneAndUpdate({_id, status:'pending'})
+alt الطلب غير موجود أو مُعالج
+  AFC --> A : 400 { تمت معالجته من قبل }
+else action == 'approve'
+  AFC -> UW : $inc {holding: -amount,\n totalWithdrawn: +amount}
+  AFC -> MT : create({type:'withdraw_processed'})
+  AFC -> NF : إشعار (withdrawal_approved)
+  AFC --> A : 200 { تمت الموافقة }
+else action == 'reject'
+  AFC -> UW : $inc {holding: -amount,\n balance: +amount} ← استرجاع
+  AFC -> MT : create({type:'withdraw_refund'})
+  AFC -> NF : إشعار (withdrawal_rejected)
+  AFC --> A : 200 { تم الرفض }
+end
+
+== 3) إلغاء طلب السحب من المستخدم ==
+U -> WR : POST /api/wallet/withdrawals/:id/cancel
+WR -> WC : cancelWithdrawal()
+WC -> WD : findOneAndUpdate({_id, user, status:'pending'})
+alt صالح
+  WC -> UW : $inc {holding: -amount, balance: +amount}
+  WC -> MT : create({type:'withdraw_refund'})
+  WC --> U : 200 { أُعيد المبلغ للمحفظة }
+else
+  WC --> U : 400 { لا يمكن إلغاء هذا الطلب }
+end
+
+== 4) نظرة الإدارة المالية ==
+A -> AR : GET /api/admin/finance/overview
+AR -> AFC : getFinanceOverview()
+AFC -> AFC : PlatformPayment.aggregate (held / released / refunded)
+AFC -> AFC : Withdrawal.aggregate (pending / processed)
+AFC -> ST : Setting.findOne({key:'platformFeePercent'})
+AFC --> A : 200 { holding, fees, withdrawals, feePercent }
+
+@enduml

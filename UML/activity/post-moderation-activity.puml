@@ -1,0 +1,46 @@
+@startuml ai-moderation-activity
+'=========================================================
+'  Activity — تدفق إنشاء منشور مع تقييم الذكاء الاصطناعي
+'=========================================================
+skinparam activityDiamondFontSize 14
+skinparam shadowing false
+title **نشر محتوى مع مراقبة الذكاء الاصطناعي** — Post Creation & AI Moderation
+
+start
+:مستخدم مسجّل الدخول;
+:إرسال POST /api/posts\n(محتوى + صورة/فيديو);
+:رفع الوسائط (multer) وتنقية المحتوى\n(sanitize-html);
+
+' ====== المزامنة: التحليل المحلي ======
+fork
+  :الطبقات المحلية\n(phrase/structure/linguistic/vocabulary);
+fork again
+  :فحص النص عبر النموذج المحلي\nLM Studio / callAI;
+endfork
+
+if (النتيجة == -1؟\nمحتوى غير لائق) then (نعم)
+  :خصم نقاط السمعة\napplyScore('bad_content', -5);
+  :تسجيل تحذير للمستخدم\napplyWarning(userId);
+  if (عدد التحذيرات) then (>= 10)
+    :حظر دائم\n(status: banned);
+  elseif (>= 5) then
+    :حظر مؤقت 24 ساعة\n(bannedUntil = now+24h);
+  elseif (>= 3) then
+    :تحذير نهائي\n(نقاط سالبة إضافية);
+  endif
+else (لا)
+  if (الدرجة > 0؟) then (نعم)
+    :منح نقاط جودة المحتوى\napplyScore('post_quality', score);
+  endif
+  :كشف المحتوى المولّد بالذكاء الاصطناعي\ndetectAIGenerated → aiProbability 0-100;
+  :حفظ المنشور\nPost.create({aiProbability, aiDetails});
+endif
+
+if (هل تم حفظ المنشور؟) then (نعم)
+  :إرجاع 201 مع المنشور;
+else (لا)
+  :إرجاع رسالة خطأ مناسبة;
+endif
+stop
+
+@enduml

@@ -27,6 +27,7 @@ const employeeRoutes = require('./routes/employeeRoutes');
 const walletRoutes = require('./routes/walletRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const oauthRoutes = require('./routes/oauthRoutes');
+const portfolioRoutes = require('./routes/portfolioRoutes');
 
 // الاتصال بقاعدة البيانات
 connectDB();
@@ -80,6 +81,7 @@ app.use('/api/employee', employeeRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/oauth', oauthRoutes);
+app.use('/api/portfolio', portfolioRoutes);
 
 // مسار تجريبي للتأكد من عمل السيرفر
 app.get('/', (req, res) => {

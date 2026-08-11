@@ -1,0 +1,57 @@
+@startuml financial-state
+'=========================================================
+'  State — حالات الدفعة المحجوزة وطلبات السحب
+'=========================================================
+skinparam shadowing false
+skinparam state {
+  BackgroundColor White
+}
+
+title **الحالات المالية** — Escrow & Withdrawal State Machines
+
+state "دفعة الحساب الضامن\nPlatformPayment" as P {
+
+  state "held\n(محجوزة لدى المنصة)" as Held
+  state "released\n(محررة إلى المستلم)" as Released
+  state "refunded\n(مسترجعة للدافع)" as Refunded
+  state "cancelled\n(ملغاة)" as Cancelled
+
+  [*] --> Held : createDeposit\n(العميل يدفع)
+  Held --> Released : moneyService.releasePayment\n(transition حصري held→released) [عمولة]
+  Held --> Refunded : moneyService.refundPayment\n(transition حصري held→refunded)
+  Held --> Cancelled : إلغاء يدوي/إداري
+  Released --> [*]
+  Refunded --> [*]
+  Cancelled --> [*]
+}
+
+state "طلب السحب\nWithdrawal" as W {
+
+  state "pending\n(قيد المراجعة)" as WPending
+  state "processed\n(تم تنفيذه)" as WProcessed
+  state "rejected\n(مرفوض)" as WRejected
+  state "cancelled\n(ملغى)" as WCancelled
+
+  [*] --> WPending : requestWithdrawal\n(حجز المبلغ في holding)
+  WPending --> WProcessed : مراجعة الإدارة — موافقة\n(خصم holding + totalWithdrawn)
+  WPending --> WRejected : مراجعة الإدارة — رفض\n(إعادة المبلغ للرصيد)
+  WPending --> WCancelled : إلغاء من المستخدم\n(إعادة المبلغ للرصيد)
+  WProcessed --> [*]
+  WRejected --> [*]
+  WCancelled --> [*]
+}
+
+note bottom of P
+  الأمان: الانتقال يتم عبر
+  findOneAndUpdate بشرط الحالة
+  الحالية لمنع التحرير المزدوج
+end note
+
+note bottom of W
+  عند الرفض/الإلغاء:
+  $inc {holding: -amount, balance: +amount}
+  عند الموافقة:
+  $inc {holding: -amount, totalWithdrawn: +amount}
+end note
+
+@enduml

@@ -1,0 +1,140 @@
+@startuml component
+'=========================================================
+'  Component — البنية الداخلية لتطبيق Express
+'=========================================================
+skinparam componentStyle rectangle
+skinparam shadowing false
+title **Profit Connect** — Component Diagram\n(معمارية طبقات Express + Node.js)
+
+package "Application (Express — src/index.js)" {
+
+  package "Routing Layer (src/routes)" {
+    component [authRoutes] as R_AUTH
+    component [userRoutes + followRoutes] as R_USER
+    component [postRoutes] as R_POST
+    component [companyRoutes + employeeRoutes] as R_COMP
+    component [jobRoutes] as R_JOB
+    component [projectRoutes] as R_PROJ
+    component [messageRoutes] as R_MSG
+    component [networkRoutes] as R_NET
+    component [walletRoutes] as R_WALLET
+    component [paymentRoutes] as R_PAY
+    component [adminRoutes] as R_ADMIN
+    component [translateRoutes + improveRoutes] as R_AI
+    component [salaryRoutes] as R_SAL
+  }
+
+  package "Middleware (src/middleware)" {
+    component [authMiddleware\nprotect / admin / employerOnly] as MW_AUTH
+    component [uploadMiddleware\n(multer: avatar, media, resume, docs)] as MW_UPLOAD
+    component [aiDetector + linguisticAnalyzer\nphraseDetector + structureAnalyzer\n+ vocabularyAnalyzer] as MW_AI
+    component [rateLimiter] as MW_RATE
+  }
+
+  package "Controllers (src/controllers)" {
+    component [authController] as C_AUTH
+    component [userController] as C_USER
+    component [postController] as C_POST
+    component [companyController] as C_COMP
+    component [jobController] as C_JOB
+    component [projectController] as C_PROJ
+    component [messageController] as C_MSG
+    component [networkController] as C_NET
+    component [walletController] as C_WALLET
+    component [paymentController] as C_PAY
+    component [adminController + adminFinanceController] as C_ADMIN
+    component [employeeController] as C_EMP
+    component [translateController + improveController] as C_AI
+    component [salaryController] as C_SAL
+  }
+
+  package "Services (src/services)" {
+    component [moneyService] as S_MONEY
+    component [aiEvaluationService] as S_AI
+    component [moderationService] as S_MOD
+    component [profileScoreService] as S_PROF
+    component [rScoreService] as S_RSCORE
+  }
+
+  package "Models (src/models)" {
+    component [User / Company / Post / Job] as M_CORE
+    component [Project / Proposal / PlatformPayment] as M_FREELANCE
+    component [Conversation / Message / Connection] as M_SOCIAL
+    component [Wallet / Withdrawal / MoneyTransaction / Setting] as M_FIN
+    component [Salary / ScoreHistory / RefreshToken] as M_MISC
+  }
+
+  package "Utils + Config (src/utils, src/config)" {
+    component [storage utils\n(avatar/company/post/resume)] as U_STORAGE
+    component [sanitizeContent + userResponse] as U_UTILS
+    component [db (Mongoose connection)] as CFG_DB
+  }
+}
+
+' ==== العلاقات بين الطبقات ====
+R_AUTH --> MW_AUTH
+R_AUTH --> C_AUTH
+R_USER --> MW_AUTH
+R_USER --> C_USER
+R_POST --> MW_AUTH
+R_POST --> MW_UPLOAD
+R_POST --> MW_RATE
+R_POST --> C_POST
+R_COMP --> MW_AUTH
+R_COMP --> C_COMP
+R_COMP --> C_EMP
+R_JOB --> MW_AUTH
+R_JOB --> C_JOB
+R_PROJ --> MW_AUTH
+R_PROJ --> C_PROJ
+R_MSG --> MW_AUTH
+R_MSG --> C_MSG
+R_NET --> MW_AUTH
+R_NET --> C_NET
+R_WALLET --> MW_AUTH
+R_WALLET --> C_WALLET
+R_PAY --> MW_AUTH
+R_PAY --> C_PAY
+R_ADMIN --> MW_AUTH
+R_ADMIN --> C_ADMIN
+R_AI --> MW_AUTH
+R_AI --> C_AI
+R_SAL --> C_SAL
+
+C_AUTH --> M_CORE
+C_USER --> M_CORE
+C_POST --> M_CORE
+C_COMP --> M_CORE
+C_JOB --> M_CORE
+C_PROJ --> M_FREELANCE
+C_MSG --> M_SOCIAL
+C_NET --> M_SOCIAL
+C_WALLET --> M_FIN
+C_PAY --> M_FREELANCE
+C_ADMIN --> M_FIN
+C_EMP --> M_CORE
+C_SAL --> M_MISC
+
+C_POST --> S_AI
+C_POST --> S_MOD
+C_USER --> S_PROF
+C_PAY --> S_MONEY
+C_ADMIN --> S_MONEY
+C_WALLET --> S_MONEY
+S_PROF --> S_AI
+S_MOD --> S_RSCORE
+S_AI --> S_RSCORE
+
+C_POST --> MW_AI
+M_CORE --> CFG_DB
+M_FREELANCE --> CFG_DB
+M_SOCIAL --> CFG_DB
+M_FIN --> CFG_DB
+M_MISC --> CFG_DB
+C_AUTH --> M_MISC
+C_AUTH --> U_UTILS
+R_AUTH --> MW_UPLOAD
+R_USER --> MW_UPLOAD
+C_USER --> U_STORAGE
+
+@enduml

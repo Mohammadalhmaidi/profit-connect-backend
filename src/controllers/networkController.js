@@ -118,6 +118,13 @@ exports.rejectConnectionRequest = async (req, res) => {
     connection.status = 'rejected';
     await connection.save();
 
+    await pushNotification(
+      connection.requester,
+      'connection_rejected',
+      'تم رفض طلب الاتصال الذي أرسلته',
+      req.user.id
+    );
+
     res.status(200).json({ success: true, message: 'تم رفض طلب الاتصال' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء رفض الطلب' });
@@ -248,6 +255,51 @@ exports.getConnectionStatus = async (req, res) => {
   }
 };
 
+// @desc    الطلبات المرسلة المعلقة (مني ولم تُرد بعد)
+// @route   GET /api/network/sent-requests
+// @access  Private
+exports.getSentRequests = async (req, res) => {
+  try {
+    const requests = await Connection.find({ requester: req.user.id, status: 'pending' })
+      .populate('recipient', 'profile.firstName profile.lastName profile.avatar profile.headline')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, count: requests.length, data: requests });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب طلباتك المرسلة' });
+  }
+};
+
+// @desc    إحصائيات الشبكة (عدد الاتصالات، الطلبات، المتابعات)
+// @route   GET /api/network/stats
+// @access  Private
+exports.getNetworkStats = async (req, res) => {
+  try {
+    const [connectionsCount, pendingRequests, sentRequests, me] = await Promise.all([
+      Connection.countDocuments({
+        status: 'accepted',
+        $or: [{ requester: req.user.id }, { recipient: req.user.id }],
+      }),
+      Connection.countDocuments({ recipient: req.user.id, status: 'pending' }),
+      Connection.countDocuments({ requester: req.user.id, status: 'pending' }),
+      User.findById(req.user.id).select('profile.followersCount profile.followingCount'),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        connectionsCount,        // عدد جهات الاتصال المقبولة
+        pendingRequests,         // طلبات واردة بانتظار ردّي
+        sentRequests,            // طلبات أرسلتها بانتظار الرد
+        followersCount: me.profile.followersCount || 0,
+        followingCount: me.profile.followingCount || 0,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب إحصائيات الشبكة' });
+  }
+};
+
 // ============================================================
 // المتابعون / المتابَعون
 // ============================================================
@@ -336,5 +388,57 @@ exports.searchUsers = async (req, res) => {
     res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء البحث' });
+  }
+};
+
+// @desc    اقتراح مستخدمين للاكتشاف (عشوائي) — ليختار المستخدم من يتابع
+// @query   limit=10 (افتراضي) ، excludeFollowing=false لتضمين من أتابعهم ، role=JobSeeker
+// @route   GET /api/network/discover
+// @access  Private
+exports.discoverUsers = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+    const excludeFollowing = req.query.excludeFollowing !== 'false';
+
+    const me = await User.findById(req.user.id).select('profile.following');
+    const myFollowing = (me && me.profile.following || []).map((id) => id.toString());
+
+    const match = { _id: { $ne: req.user._id }, status: 'active' };
+    if (excludeFollowing && myFollowing.length) {
+      match._id.$nin = myFollowing;
+    }
+    if (req.query.role && ['Employer', 'JobSeeker', 'FreelanceClient'].includes(req.query.role)) {
+      match.role = req.query.role;
+    }
+
+    const users = await User.aggregate([
+      { $match: match },
+      { $sample: { size: limit } }, // أخذ عينة عشوائية
+      {
+        $project: {
+          username: 1,
+          role: 1,
+          profile: {
+            firstName: 1, lastName: 1, fullname: 1, avatar: 1,
+            headline: 1, bio: 1, location: 1, followersCount: 1, rScore: 1,
+          },
+          professional: 1,
+          createdAt: 1,
+        },
+      },
+    ]);
+
+    const data = users.map((u) => ({
+      _id: u._id,
+      username: u.username,
+      role: u.role,
+      profile: u.profile,
+      professional: u.professional,
+      isFollowing: myFollowing.includes(u._id.toString()),
+    }));
+
+    res.status(200).json({ success: true, count: data.length, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب مستخدمين مقترحين' });
   }
 };
