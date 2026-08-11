@@ -3,7 +3,7 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { uploadAvatar } = require('../middleware/uploadMiddleware');
 // استدعاء دوال المصادقة
-const { signup, login, getCurrentUser, refresh, logout } = require('../controllers/authController');
+const { signup, login, getCurrentUser, refresh, logout, forgotPassword, resetPassword } = require('../controllers/authController');
 
 const signupAvatarUploadHandler = (req, res, next) => {
   uploadAvatar.single('avatar')(req, res, (error) => {
@@ -23,6 +23,12 @@ router.post('/signup', signupAvatarUploadHandler, signup);
 
 // مسار تسجيل الدخول: POST /api/auth/login
 router.post('/login', login);
+
+// مسار طلب رمز استعادة كلمة المرور: POST /api/auth/forgot-password
+router.post('/forgot-password', forgotPassword);
+
+// مسار إعادة تعيين كلمة المرور: POST /api/auth/reset-password
+router.post('/reset-password', resetPassword);
 
 // مسار التحقق من التوكن وجلب المستخدم الحالي: GET /api/auth/me
 router.get('/me', protect, getCurrentUser);

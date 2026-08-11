@@ -7,6 +7,19 @@ const { applyWarning } = require('../services/moderationService');
 const { buildPostImageUrl, deletePostImage, buildPostVideoUrl, deletePostVideo } = require('../utils/postImageStorage');
 const { sanitizePostContent } = require('../utils/sanitizeContent');
 
+function senderName(user) {
+  return user?.profile?.fullname || user?.username || 'مستخدم';
+}
+
+async function pushPostNotification(userId, payload) {
+  if (!userId) return;
+  try {
+    await User.findByIdAndUpdate(userId, { $push: { notifications: { read: false, ...payload } } });
+  } catch (e) {
+    console.error('[Post Notification Error]:', e.message);
+  }
+}
+
 // @desc    إنشاء منشور جديد
 // @route   POST /api/posts
 // @access  Private (يحتاج توكن)
@@ -79,17 +92,30 @@ exports.getPosts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    // الخلاصة (Feed): منشورات المستخدم نفسه + منشورات من يتابعهم فقط
+    const me = await User.findById(req.user._id).select('profile.following').lean();
+    const following = (me && me.profile && me.profile.following || [])
+      .map((id) => id.toString());
+    const authors = [...following, req.user._id.toString()];
+    const filter = { user: { $in: authors } };
+
     // جلب المنشورات وترتيبها من الأحدث للأقدم
-    const posts = await Post.find()
+    const posts = await Post.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('user', 'profile.firstName profile.lastName profile.headline profile.avatar')
-      .populate({ path: 'comments.user', select: '_id profile.firstName profile.lastName profile.avatar' })
+      .populate('user', 'role profile.firstName profile.lastName profile.fullname profile.headline profile.avatar')
+      .populate({ path: 'comments.user', select: '_id role profile.firstName profile.lastName profile.fullname profile.avatar' })
       .lean()
 
+    const user = await User.findById(req.user._id).select('savedPosts').lean();
+    const savedSet = new Set((user?.savedPosts || []).map(String));
+    posts.forEach((post) => {
+      post.isSaved = savedSet.has(String(post._id));
+    });
+
     // جلب العدد الكلي للمنشورات لحساب عدد الصفحات
-    const total = await Post.countDocuments();
+    const total = await Post.countDocuments(filter);
 
     res.status(200).json({
       success: true,
@@ -113,13 +139,17 @@ exports.getPosts = async (req, res) => {
 exports.getPost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId)
-      .populate('user', 'profile.firstName profile.lastName profile.headline profile.avatar')
-      .populate({ path: 'comments.user', select: '_id profile.firstName profile.lastName profile.avatar' })
+      .populate('user', 'role profile.firstName profile.lastName profile.fullname profile.headline profile.avatar')
+      .populate({ path: 'comments.user', select: '_id role profile.firstName profile.lastName profile.fullname profile.avatar' })
       .lean();
 
     if (!post) {
       return res.status(404).json({ success: false, message: 'المنشور غير موجود' });
     }
+
+    const user = await User.findById(req.user._id).select('savedPosts').lean();
+    const savedSet = new Set((user?.savedPosts || []).map(String));
+    post.isSaved = savedSet.has(String(post._id));
 
     res.status(200).json({ success: true, data: post });
   } catch (error) {
@@ -146,7 +176,17 @@ exports.toggleLike = async (req, res) => {
     if (index === -1) {
       post.likes.push(req.user._id);
       isLiked = true;
-      
+
+      // إشعار لصاحب المنشور بأن شخصاً أعجب بمنشوره
+      if (post.user.toString() !== req.user._id.toString()) {
+        await pushPostNotification(post.user.toString(), {
+          type: 'post_liked',
+          postId: post._id,
+          senderId: req.user._id,
+          message: `أعجب ${senderName(req.user)} بمنشورك`
+        });
+      }
+
       // 🌟 3. مكافأة "صاحب المنشور" لأنه حصل على إعجاب جديد (التفاعل الإيجابي)
       // نتأكد أن المستخدم لا يعطي إعجاب لنفسه لتجنب الغش
       if (post.user.toString() !== req.user._id.toString()) {
@@ -196,6 +236,16 @@ exports.addComment = async (req, res) => {
     await post.save();
     const savedComment = post.comments[post.comments.length - 1];
     console.log('[AddComment Debug] Saved comment content:', savedComment?.content, '| Post ID:', post._id);
+
+    // إشعار لصاحب المنشور بوجود تعليق جديد
+    if (post.user.toString() !== req.user._id.toString()) {
+      await pushPostNotification(post.user.toString(), {
+        type: 'comment_added',
+        postId: post._id,
+        senderId: req.user._id,
+        message: `علّق ${senderName(req.user)} على منشورك: ${content.slice(0, 60)}`
+      });
+    }
 
 
     // 🤖 تقييم التعليق بالذكاء في الخلفية
@@ -363,5 +413,89 @@ exports.deleteComment = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حذف التعليق' });
+  }
+};
+
+// @desc    تسجيل نسخ/مشاركة رابط المنشور (زيادة العداد)
+// @route   POST /api/posts/:postId/share
+// @access  Private
+exports.sharePost = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ success: false, message: 'المنشور غير موجود' });
+
+    const alreadyShared = (post.sharedBy || []).some(
+      (id) => id.toString() === req.user._id.toString()
+    );
+    if (alreadyShared) {
+      return res.status(200).json({
+        success: true,
+        shareCount: post.shareCount,
+        alreadyShared: true,
+      });
+    }
+
+    post.sharedBy.push(req.user._id);
+    post.shareCount += 1;
+    await post.save();
+
+    // إشعار لصاحب المنشور عند مشاركة منشوره (عدا نفسه)
+    if (post.user.toString() !== req.user._id.toString()) {
+      await pushPostNotification(post.user.toString(), {
+        type: 'post_shared',
+        postId: post._id,
+        senderId: req.user._id,
+        message: `شارك ${senderName(req.user)} منشورك`
+      });
+    }
+
+    res.status(200).json({ success: true, shareCount: post.shareCount });
+  } catch (error) {
+    console.error('Share Post Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء مشاركة المنشور' });
+  }
+};
+
+// @desc    تسجيل إعجاب / إلغاء إعجاب بتعليق (Toggle Comment Like)
+// @route   POST /api/posts/:postId/comments/:commentId/like
+// @access  Private
+exports.toggleCommentLike = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ success: false, message: 'المنشور غير موجود' });
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ success: false, message: 'التعليق غير موجود' });
+
+    const index = (comment.likes || []).indexOf(req.user._id);
+    let isLiked = false;
+
+    if (index === -1) {
+      comment.likes.push(req.user._id);
+      isLiked = true;
+
+      // إشعار لصاحب التعليق بإعجاب جديد على تعليقه
+      if (comment.user.toString() !== req.user._id.toString()) {
+        await pushPostNotification(comment.user.toString(), {
+          type: 'comment_liked',
+          postId: post._id,
+          senderId: req.user._id,
+          message: `أعجب ${senderName(req.user)} بتعليقك`
+        });
+      }
+    } else {
+      comment.likes.splice(index, 1);
+    }
+
+    await post.save();
+
+    res.status(200).json({
+      success: true,
+      isLiked,
+      likesCount: comment.likes.length
+    });
+  } catch (error) {
+    console.error('Comment Like Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء معالجة إعجاب التعليق' });
   }
 };

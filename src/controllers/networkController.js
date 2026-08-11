@@ -306,7 +306,7 @@ exports.searchUsers = async (req, res) => {
     };
 
     const users = await User.find(filter)
-      .select('profile.firstName profile.lastName profile.avatar profile.headline username role status')
+      .select('profile.firstName profile.lastName profile.avatar profile.headline profile.followersCount username role status')
       .sort({ createdAt: -1 })
       .limit(parseInt(req.query.limit) || 20);
 

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const RefreshToken = require('../models/RefreshToken');
+const PasswordResetToken = require('../models/PasswordResetToken');
 const { buildAvatarUrl, deleteAvatarFile } = require('../utils/avatarStorage');
 const { formatUserResponse } = require('../utils/userResponse');
 
@@ -114,6 +115,7 @@ exports.signup = async (req, res) => {
         firstName,
         lastName,
         phoneNumber,
+        ...(req.body.birthDate ? { birthDate: req.body.birthDate } : {}),
         ...(req.file ? { avatar: buildAvatarUrl(req, req.file.filename) } : {}),
       },
       ...(professional ? { professional } : {}),
@@ -146,7 +148,10 @@ exports.signup = async (req, res) => {
     if (req.file) {
       await deleteAvatarFile(buildAvatarUrl(req, req.file.filename));
     }
-
+    console.error('[signup-500] message:', error.message);
+    console.error('[signup-500] email/role:', req.body?.email, req.body?.role);
+    console.error('[signup-500] keys:', Object.keys(req.body || {}).join(','));
+    console.error('[signup-500] body:', JSON.stringify(req.body)?.slice(0, 600));
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -200,6 +205,107 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ===== استعادة كلمة المرور =====
+const RESET_CODE_EXPIRE_MINUTES = 10;
+
+// تجزئة رمز الاستعادة قبل تخزينه
+const hashResetCode = (code) => crypto.createHash('sha256').update(code).digest('hex');
+
+// @desc    إرسال رمز استعادة كلمة المرور
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'البريد الإلكتروني مطلوب' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'لا يوجد حساب بهذا البريد الإلكتروني' });
+    }
+
+    // رمز مكوّن من 4 أرقام
+    const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
+
+    // إبطال أي رموز سابقة لنفس البريد
+    await PasswordResetToken.deleteMany({ email: email.toLowerCase() });
+
+    await PasswordResetToken.create({
+      email: email.toLowerCase(),
+      codeHash: hashResetCode(code),
+      expiresAt: new Date(Date.now() + RESET_CODE_EXPIRE_MINUTES * 60 * 1000),
+    });
+
+    console.log(`[Password Reset] رمز الاستعادة لـ ${email}: ${code}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'تم إرسال رمز الاستعادة إلى بريدك الإلكتروني',
+      // لأغراض العرض التجريبي (لا يوجد مزوّد إيميل) — يُحذف عند ربط خدمة إرسال حقيقية
+      demoCode: code,
+      expiresInMinutes: RESET_CODE_EXPIRE_MINUTES,
+    });
+  } catch (error) {
+    console.error('Forgot Password Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء إرسال رمز الاستعادة' });
+  }
+};
+
+// @desc    إعادة تعيين كلمة المرور باستخدام الرمز
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, code, password } = req.body;
+
+    if (!email || !code || !password) {
+      return res.status(400).json({ success: false, message: 'البريد الإلكتروني والرمز وكلمة المرور مطلوبة' });
+    }
+
+    if (!/^\d{4}$/.test(String(code))) {
+      return res.status(400).json({ success: false, message: 'رمز الاستعادة يجب أن يكون 4 أرقام' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل' });
+    }
+
+    const token = await PasswordResetToken.findOne({
+      email: email.toLowerCase(),
+      codeHash: hashResetCode(String(code)),
+      consumedAt: null,
+    });
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'رمز الاستعادة غير صحيح' });
+    }
+
+    if (token.expiresAt < new Date()) {
+      return res.status(400).json({ success: false, message: 'انتهت صلاحية رمز الاستعادة، اطلب رمزاً جديداً' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'لا يوجد حساب بهذا البريد الإلكتروني' });
+    }
+
+    user.password = password;
+    await user.save();
+
+    // إبطال الرمز المستخدم وإلغاء جلسات المستخدم القديمة
+    token.consumedAt = new Date();
+    await token.save();
+    await RefreshToken.deleteMany({ user: user._id });
+
+    res.status(200).json({ success: true, message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+  } catch (error) {
+    console.error('Reset Password Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء إعادة تعيين كلمة المرور' });
   }
 };
 
@@ -331,3 +437,6 @@ exports.logout = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+module.exports.generateToken = generateToken;
+module.exports.createStoredRefreshToken = createStoredRefreshToken;

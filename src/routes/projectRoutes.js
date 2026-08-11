@@ -17,6 +17,7 @@ const {
   getNotifications,
   getRecentNotifications,
   markNotificationRead,
+  markAllNotificationsRead,
   getProjectOverview,
   manageProject,
   getProjectTeam,
@@ -47,6 +48,7 @@ router.get('/my-projects-with-proposals', getMyProjectsWithProposals);
 router.get('/notifications', getNotifications);
 router.get('/notifications/recent', getRecentNotifications);
 router.put('/notifications/:notificationId/read', markNotificationRead);
+router.put('/notifications/read-all', markAllNotificationsRead);
 
 // ===== إدارة المشروع الشاملة =====
 router.get('/:id/overview', getProjectOverview);

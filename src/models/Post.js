@@ -33,7 +33,20 @@ const postSchema = new mongoose.Schema(
         ref: 'User'
       }
     ],
-    // مصفوفة التعليقات (كل تعليق يحتوي على صاحبه، ومحتواه، ووقت كتابته)
+    // عدد مرات نسخ رابط المشاركة / إعادة المشاركة
+    shareCount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    // معرّفات المستخدمين الذين شاركوا المنشور (يُعدّ مرة واحدة لكل مستخدم)
+    sharedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    // مصفوفة التعليقات (كل تعليق يحتوي على صاحبه، ومحتواه، ووقت كتابته، ومن أعجب به)
     comments: [
       {
         user: {
@@ -46,6 +59,12 @@ const postSchema = new mongoose.Schema(
           required: true,
           trim: true
         },
+        likes: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+          }
+        ],
         createdAt: {
           type: Date,
           default: Date.now

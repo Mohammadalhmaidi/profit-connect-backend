@@ -26,6 +26,7 @@ const networkRoutes = require('./routes/networkRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const walletRoutes = require('./routes/walletRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const oauthRoutes = require('./routes/oauthRoutes');
 
 // الاتصال بقاعدة البيانات
 connectDB();
@@ -57,7 +58,11 @@ app.use(
 );
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(morgan('dev'));
 app.use('/uploads', cors(corsOptions), express.static(path.join(__dirname, '../uploads')));
+app.get('/default-avatar.png', cors(corsOptions), (req, res) => {
+  res.sendFile(path.join(__dirname, '../uploads/default-avatar.png'));
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/users', followRoutes); // <-- تسجيل مسارات المتابعة
@@ -74,11 +79,7 @@ app.use('/api/network', networkRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/payments', paymentRoutes);
-
-// تسجيل الطلبات في موجه الأوامر أثناء التطوير
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-}
+app.use('/api/oauth', oauthRoutes);
 
 // مسار تجريبي للتأكد من عمل السيرفر
 app.get('/', (req, res) => {

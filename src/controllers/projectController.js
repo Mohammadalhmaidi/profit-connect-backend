@@ -433,6 +433,19 @@ exports.markNotificationRead = async (req, res) => {
   }
 };
 
+exports.markAllNotificationsRead = async (req, res) => {
+  try {
+    await User.updateOne(
+      { _id: req.user._id },
+      { $set: { 'notifications.$[].read': true } }
+    );
+    res.status(200).json({ success: true, message: 'تم تعليم جميع الإشعارات كمقروءة' });
+  } catch (error) {
+    console.error('Mark All Notifications Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
+  }
+};
+
 exports.getMyProjectsWithProposals = async (req, res) => {
   try {
     const projects = await Project.find({ client: req.user._id })

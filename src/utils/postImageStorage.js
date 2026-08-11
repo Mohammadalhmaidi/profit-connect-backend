@@ -13,7 +13,7 @@ const allowedImageMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/j
 
 const buildPostImageUrl = (req, filename) => {
   if (!filename) return null;
-  return `${req.protocol}://${req.get('host')}/uploads/posts/${filename}`;
+  return `uploads/posts/${filename}`;
 };
 
 const isLocalPostImage = (imageUrl) => {
@@ -42,7 +42,7 @@ const allowedVideoMimeTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'vi
 
 const buildPostVideoUrl = (req, filename) => {
   if (!filename) return null;
-  return `${req.protocol}://${req.get('host')}/uploads/posts/videos/${filename}`;
+  return `uploads/posts/videos/${filename}`;
 };
 
 const isLocalPostVideo = (videoUrl) => {

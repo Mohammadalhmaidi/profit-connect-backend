@@ -9,7 +9,9 @@ const {
   addComment,
   updatePost,    
   deletePost,    
-  deleteComment  
+  deleteComment,
+  sharePost,
+  toggleCommentLike
 } = require('../controllers/postController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -42,7 +44,9 @@ router.route('/:postId')
 
 // مسار التفاعلات (الإعجاب والتعليق)
 router.post('/:postId/like', toggleLike);
+router.post('/:postId/share', sharePost);
 router.post('/:postId/comments', commentLimiter, addComment);
+router.post('/:postId/comments/:commentId/like', toggleCommentLike);
 
 // مسار حذف تعليق محدد
 router.delete('/:postId/comments/:commentId', deleteComment);

@@ -13,7 +13,7 @@ const buildAvatarUrl = (req, filename) => {
     return null;
   }
 
-  return `${req.protocol}://${req.get('host')}/uploads/avatars/${filename}`;
+  return `uploads/avatars/${filename}`;
 };
 
 const isLocalAvatar = (avatarUrl) => {

@@ -13,7 +13,7 @@ const allowedDocMimeTypes = [
 
 const buildCompanyDocUrl = (req, filename) => {
   if (!filename) return null;
-  return `${req.protocol}://${req.get('host')}/uploads/company-docs/${filename}`;
+  return `uploads/company-docs/${filename}`;
 };
 
 const isLocalCompanyDoc = (docUrl) => {

@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema(
         default: 'default-avatar.png'
       },
       location: String,
+      birthDate: String,
       socialLinks: {
         linkedin: { type: String, trim: true, default: '' },
         github: { type: String, trim: true, default: '' },
@@ -157,7 +158,7 @@ const userSchema = new mongoose.Schema(
       totalWithdrawn: { type: Number, default: 0 },     // إجمالي ما سحبه المستخدم
     },
     notifications: [{
-      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'proposal_received', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status', 'connection_request', 'connection_accepted', 'payment_deposited', 'payment_released', 'payment_refunded', 'withdrawal_approved', 'withdrawal_rejected'], required: true },
+      type: { type: String, enum: ['proposal_accepted', 'proposal_rejected', 'proposal_received', 'ai_detected', 'company_setup', 'company_status', 'employee_added', 'employee_removed', 'job_application_status', 'connection_request', 'connection_accepted', 'payment_deposited', 'payment_released', 'payment_refunded', 'withdrawal_approved', 'withdrawal_rejected', 'post_liked', 'comment_added', 'comment_liked', 'post_shared'], required: true },
       projectName: { type: String },
       clientName: { type: String },
       projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },

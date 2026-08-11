@@ -14,3 +14,13 @@ uploads/posts/*
 !uploads/posts/videos/
 uploads/posts/videos/*
 !uploads/posts/videos/.gitkeep
+
+# Runtime logs
+server.stdout.log
+server.stderr.log
+
+# Local migrations helper
+migrate-relative-urls.js
+
+uploads/resumes/*
+!uploads/resumes/.gitkeep

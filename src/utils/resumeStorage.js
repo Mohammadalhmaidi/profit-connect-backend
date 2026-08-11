@@ -14,7 +14,7 @@ const allowedResumeMimeTypes = [
 
 const buildResumeUrl = (req, filename) => {
   if (!filename) return null;
-  return `${req.protocol}://${req.get('host')}/uploads/resumes/${filename}`;
+  return `uploads/resumes/${filename}`;
 };
 
 const isLocalResume = (url) => {

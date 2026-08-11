@@ -10,7 +10,7 @@ const allowedImageMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/j
 
 const buildCompanyMediaUrl = (req, filename) => {
   if (!filename) return null;
-  return `${req.protocol}://${req.get('host')}/uploads/company-media/${filename}`;
+  return `uploads/company-media/${filename}`;
 };
 
 const isLocalCompanyMedia = (mediaUrl) => {

@@ -54,20 +54,40 @@ exports.updateUserProfile = async (req, res) => {
     // حفظ نسخة من البيانات القديمة قبل التعديل لمقارنتها لاحقاً
     const oldUser = user.toObject();
 
-    const { firstName, lastName, bio, headline, location, phoneNumber, skills, industry, yearsOfExperience, socialLinks } = req.body;
+    const {
+      firstName, lastName, bio, headline, location, phoneNumber,
+      skills, industry, yearsOfExperience, socialLinks, birthDate,
+      companyName, companyDescription, companyIndustry, website, companySize, foundedYear,
+    } = req.body;
 
-    if (firstName)  user.profile.firstName  = firstName;
-    if (lastName)   user.profile.lastName   = lastName;
-    if (bio)        user.profile.bio        = bio;
-    if (headline)   user.profile.headline   = headline;
-    if (location)   user.profile.location   = location;
-    if (phoneNumber) user.profile.phoneNumber = phoneNumber;
-    if (socialLinks?.linkedin) user.profile.socialLinks.linkedin = socialLinks.linkedin;
-    if (socialLinks?.github)   user.profile.socialLinks.github   = socialLinks.github;
-    if (socialLinks?.website)  user.profile.socialLinks.website  = socialLinks.website;
-    if (skills)         user.professional.skills         = skills;
-    if (industry)       user.professional.industry       = industry;
-    if (yearsOfExperience !== undefined) user.professional.yearsOfExperience = yearsOfExperience;
+    if (firstName !== undefined)  user.profile.firstName  = String(firstName).trim();
+    if (lastName !== undefined)   user.profile.lastName   = String(lastName).trim();
+    if (bio !== undefined)        user.profile.bio        = String(bio).trim();
+    if (headline !== undefined)   user.profile.headline   = String(headline).trim();
+    if (location !== undefined)   user.profile.location   = String(location).trim();
+    if (phoneNumber !== undefined) user.profile.phoneNumber = String(phoneNumber).trim();
+    if (birthDate !== undefined)  user.profile.birthDate  = String(birthDate).trim();
+    if (socialLinks !== undefined) {
+      user.profile.socialLinks.linkedin = String(socialLinks.linkedin ?? '').trim();
+      user.profile.socialLinks.github   = String(socialLinks.github ?? '').trim();
+      user.profile.socialLinks.website  = String(socialLinks.website ?? '').trim();
+    }
+    if (skills !== undefined) {
+      user.professional.skills = Array.isArray(skills)
+        ? skills.map((s) => String(s).trim()).filter((s) => s.length > 0)
+        : String(skills).split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    }
+    if (industry !== undefined) user.professional.industry = String(industry).trim();
+    if (yearsOfExperience !== undefined) user.professional.yearsOfExperience = Number(yearsOfExperience);
+
+    if (user.role === 'Employer' || user.role === 'FreelanceClient') {
+      if (companyName !== undefined) user.employerProfile.companyName = String(companyName).trim();
+      if (companyDescription !== undefined) user.employerProfile.companyDescription = String(companyDescription).trim();
+      if (companyIndustry !== undefined) user.employerProfile.industry = String(companyIndustry).trim();
+      if (website !== undefined) user.employerProfile.website = String(website).trim();
+      if (companySize !== undefined) user.employerProfile.companySize = String(companySize).trim();
+      if (foundedYear !== undefined) user.employerProfile.foundedYear = Number(foundedYear);
+    }
 
     const updatedUser = await user.save();
 
@@ -334,10 +354,27 @@ exports.getUserById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
     }
 
-    res.status(200).json({
-      success: true,
-      data: formatUserResponse(user)
-    });
+    // هل أتابع هذا المستخدم؟
+    const me = await User.findById(req.user._id).select('profile.following').lean();
+    const isFollowing = (me && me.profile && me.profile.following || [])
+      .some((id) => id.toString() === req.params.userId);
+
+    // منشورات هذا المستخدم (لتظهر في صفحة ملفه)
+    const posts = await Post.find({ user: user._id })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(req.query.postsLimit) || 50)
+      .populate('user', 'role profile.firstName profile.lastName profile.fullname profile.headline profile.avatar')
+      .populate({ path: 'comments.user', select: '_id role profile.firstName profile.lastName profile.fullname profile.avatar' })
+      .lean();
+
+    const data = formatUserResponse(user);
+    data.isFollowing = isFollowing;
+    data.postsCount = user.profile.postsCount || posts.length;
+    data.followersCount = user.profile.followersCount || 0;
+    data.followingCount = user.profile.followingCount || 0;
+    data.posts = posts;
+
+    res.status(200).json({ success: true, data });
   } catch (error) {
     console.error('Get User By Id Error:', error.message);
     // معالجة خطأ كتابة ID بصيغة غير صحيحة
