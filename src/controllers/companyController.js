@@ -834,3 +834,119 @@ exports.getCompanyStats = async (req, res) => {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الإحصائيات' });
   }
 };
+
+// @desc    جلب أفضل 5 مديرين حسب تقييم الشركات ونقاط السمعة
+// @route   GET /api/companies/leaderboard/top-managers
+// @access  Public
+exports.getTopManagers = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 5, 10);
+
+    // جلب الشركات المعتمدة فقط
+    const companies = await Company.find({ status: 'Approved' })
+      .select('name owner admins averageRating followersCount logo industry')
+      .populate('owner', 'username profile.firstName profile.lastName profile.fullname profile.avatar profile.headline profile.rScore role');
+
+    // تجميع المديرين (المالكين + المدراء) مع معلومات شركاتهم
+    const managersMap = new Map();
+
+    for (const company of companies) {
+      // إضافة المالك
+      if (company.owner && company.owner._id) {
+        const ownerId = company.owner._id.toString();
+        if (!managersMap.has(ownerId)) {
+          managersMap.set(ownerId, {
+            user: {
+              _id: company.owner._id,
+              username: company.owner.username,
+              profile: company.owner.profile,
+              role: company.owner.role
+            },
+            companies: [],
+            totalRating: 0,
+            totalFollowers: 0
+          });
+        }
+        const manager = managersMap.get(ownerId);
+        manager.companies.push({
+          _id: company._id,
+          name: company.name,
+          logo: company.logo,
+          industry: company.industry,
+          averageRating: company.averageRating,
+          followersCount: company.followersCount
+        });
+        manager.totalRating += company.averageRating || 0;
+        manager.totalFollowers += company.followersCount || 0;
+      }
+
+      // إضافة المدراء الإضافيين
+      if (company.admins && company.admins.length > 0) {
+        for (const adminId of company.admins) {
+          const adminIdStr = adminId.toString();
+          if (!managersMap.has(adminIdStr)) {
+            // جلب بيانات المدير
+            const User = require('../models/User');
+            const adminUser = await User.findById(adminId)
+              .select('username profile.firstName profile.lastName profile.fullname profile.avatar profile.headline profile.rScore role');
+
+            if (adminUser) {
+              managersMap.set(adminIdStr, {
+                user: {
+                  _id: adminUser._id,
+                  username: adminUser.username,
+                  profile: adminUser.profile,
+                  role: adminUser.role
+                },
+                companies: [],
+                totalRating: 0,
+                totalFollowers: 0
+              });
+            }
+          }
+
+          if (managersMap.has(adminIdStr)) {
+            const manager = managersMap.get(adminIdStr);
+            manager.companies.push({
+              _id: company._id,
+              name: company.name,
+              logo: company.logo,
+              industry: company.industry,
+              averageRating: company.averageRating,
+              followersCount: company.followersCount
+            });
+            manager.totalRating += company.averageRating || 0;
+            manager.totalFollowers += company.followersCount || 0;
+          }
+        }
+      }
+    }
+
+    // تحويل إلى مصفوفة وترتيب حسب نقاط السمعة ثم متوسط تقييم الشركات
+    const managers = Array.from(managersMap.values())
+      .sort((a, b) => {
+        // الترتيب أولاً حسب R-Score
+        const aScore = a.user.profile?.rScore || 0;
+        const bScore = b.user.profile?.rScore || 0;
+        if (bScore !== aScore) return bScore - aScore;
+        // ثم حسب متوسط تقييم الشركات
+        return (b.totalRating / b.companies.length) - (a.totalRating / a.companies.length);
+      })
+      .slice(0, limit);
+
+    res.status(200).json({
+      success: true,
+      count: managers.length,
+      data: managers.map(m => ({
+        manager: m.user,
+        companies: m.companies,
+        companiesCount: m.companies.length,
+        averageCompanyRating: Math.round((m.totalRating / m.companies.length) * 10) / 10,
+        totalFollowers: m.totalFollowers
+      }))
+    });
+  } catch (error) {
+    console.error('Get Top Managers Error:', error.message);
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب أفضل المديرين' });
+  }
+};
