@@ -348,9 +348,12 @@ exports.getUserById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
     }
 
+    // التحقق مما إذا كان المستخدم يعرض ملفه الشخصي أم ملف شخص آخر
+    const isOwnProfile = req.user._id.toString() === user._id.toString();
+
     res.status(200).json({
       success: true,
-      data: formatUserResponse(user)
+      data: formatUserResponse(user, { includeSettings: isOwnProfile })
     });
   } catch (error) {
     console.error('Get User By Id Error:', error.message);
