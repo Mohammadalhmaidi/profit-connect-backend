@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "seed": "node scripts/seed.js",
+    "seed:clear": "node scripts/seed.js --clear",
+    "seed:big": "node scripts/seed.js --clear --users 1500 --companies 150 --jobs 600 --posts 900 --projects 300"
   },
   "keywords": [],
   "author": "",
