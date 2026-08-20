@@ -58,7 +58,6 @@ app.use(
 );
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(morgan('dev'));
 app.use('/uploads', cors(corsOptions), express.static(path.join(__dirname, '../uploads')));
 app.get('/default-avatar.png', cors(corsOptions), (req, res) => {
   res.sendFile(path.join(__dirname, '../uploads/default-avatar.png'));
