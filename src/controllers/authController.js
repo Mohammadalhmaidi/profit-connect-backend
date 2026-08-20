@@ -42,7 +42,7 @@ const createStoredRefreshToken = async (userId, req = {}) => {
 // @access  Public
 exports.signup = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role, phoneNumber, industry, yearsOfExperience, skills ,rScore } = req.body;
+    const { firstName, lastName, email, password, role, phoneNumber, industry, yearsOfExperience, skills, rScore, gender } = req.body;
 
     // الدور عند التسجيل: يسمح فقط بـ (صاحب عمل / باحث عن عمل / صاحب مشروع حر)،
     // ولا يُسمح بتمرير Admin من التسجيل (يُمنح عبر الإدارة فقط)
@@ -114,6 +114,7 @@ exports.signup = async (req, res) => {
         firstName,
         lastName,
         phoneNumber,
+        ...(gender && ['male', 'female'].includes(gender) ? { gender } : {}),
         ...(req.file ? { avatar: buildAvatarUrl(req, req.file.filename) } : {}),
       },
       ...(professional ? { professional } : {}),

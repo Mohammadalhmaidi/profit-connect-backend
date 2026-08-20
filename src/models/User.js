@@ -31,6 +31,11 @@ const userSchema = new mongoose.Schema(
       firstName: { type: String, required: true, trim: true },
       lastName: { type: String, required: true, trim: true },
       fullname: String,
+      gender: {
+        type: String,
+        enum: ['male', 'female'],
+        default: null,
+      },
       phoneNumber: String,
       headline: String,
       bio: String,

@@ -161,6 +161,7 @@ async function seedUsers(count) {
     }
 
     const isArabic = Math.random() > 0.3;
+    const gender = Math.random() > 0.45 ? 'male' : 'female';
     const firstName = isArabic ? pick(FIRST_NAMES_AR) : pick(FIRST_NAMES_EN);
     const lastName = isArabic ? pick(LAST_NAMES) : pick(LAST_NAMES_EN);
     const username = `${firstName.toLowerCase().replace(/\s/g, '')}_${Date.now()}_${i}`;
@@ -173,6 +174,7 @@ async function seedUsers(count) {
       profile: {
         firstName,
         lastName,
+        gender,
         phoneNumber: generatePhone(),
         headline: pick([
           'مطور Full-Stack | React, Node.js', 'مصمم UI/UX | Figma Expert',

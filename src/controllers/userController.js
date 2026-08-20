@@ -54,7 +54,7 @@ exports.updateUserProfile = async (req, res) => {
     // حفظ نسخة من البيانات القديمة قبل التعديل لمقارنتها لاحقاً
     const oldUser = user.toObject();
 
-    const { firstName, lastName, bio, headline, location, phoneNumber, skills, industry, yearsOfExperience, socialLinks } = req.body;
+    const { firstName, lastName, bio, headline, location, phoneNumber, skills, industry, yearsOfExperience, socialLinks, gender } = req.body;
 
     if (firstName)  user.profile.firstName  = firstName;
     if (lastName)   user.profile.lastName   = lastName;
@@ -62,6 +62,7 @@ exports.updateUserProfile = async (req, res) => {
     if (headline)   user.profile.headline   = headline;
     if (location)   user.profile.location   = location;
     if (phoneNumber) user.profile.phoneNumber = phoneNumber;
+    if (gender && ['male', 'female'].includes(gender)) user.profile.gender = gender;
     if (socialLinks?.linkedin) user.profile.socialLinks.linkedin = socialLinks.linkedin;
     if (socialLinks?.github)   user.profile.socialLinks.github   = socialLinks.github;
     if (socialLinks?.website)  user.profile.socialLinks.website  = socialLinks.website;
@@ -452,7 +453,7 @@ exports.getTopUsers = async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .select('username role profile.firstName profile.lastName profile.fullname profile.avatar profile.headline profile.bio profile.location profile.followersCount profile.followingCount profile.postsCount profile.rScore professional.industry professional.yearsOfExperience professional.skills createdAt')
+      .select('username role profile.firstName profile.lastName profile.fullname profile.gender profile.avatar profile.headline profile.bio profile.location profile.followersCount profile.followingCount profile.postsCount profile.rScore professional.industry professional.yearsOfExperience professional.skills createdAt')
       .sort({ 'profile.rScore': -1 })
       .limit(limit);
 
