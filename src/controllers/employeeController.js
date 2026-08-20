@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Job = require('../models/Job');
 const JobApplication = require('../models/JobApplication');
 const bcrypt = require('bcryptjs');
+const { validatePassword } = require('../utils/passwordPolicy');
 
 // ==========================================
 // @desc    إضافة موظف جديد للشركة (إنشاء حساب جديد)
@@ -51,6 +52,13 @@ exports.addEmployee = async (req, res) => {
     }
 
     // 5. إنشاء حساب المستخدم الجديد بدور CompanyEmployee
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'كلمة المرور مطلوبة' });
+    }
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({ success: false, message: passwordCheck.message });
+    }
     const employeeUser = await User.create({
       email,
       password,

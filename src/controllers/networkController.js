@@ -179,9 +179,15 @@ exports.getMyConnections = async (req, res) => {
       .populate('requester', 'profile.firstName profile.lastName profile.avatar profile.headline')
       .populate('recipient', 'profile.firstName profile.lastName profile.avatar profile.headline');
 
-    const others = connections.map((c) =>
-      c.requester._id.toString() === req.user.id ? c.recipient : c.requester
-    );
+    const others = connections
+      .map((c) => {
+        const other = c.requester && c.requester._id.toString() === req.user.id
+          ? c.recipient
+          : c.requester;
+        // تجاهل الأطراف المحذوفة حتى لا يسقط الطلب
+        return other && other._id ? other : null;
+      })
+      .filter(Boolean);
 
     res.status(200).json({ success: true, count: others.length, data: others });
   } catch (error) {
@@ -282,7 +288,7 @@ exports.getNetworkStats = async (req, res) => {
       }),
       Connection.countDocuments({ recipient: req.user.id, status: 'pending' }),
       Connection.countDocuments({ requester: req.user.id, status: 'pending' }),
-      User.findById(req.user.id).select('profile.followersCount profile.followingCount'),
+      User.findById(req.user.id).select('profile.followersCount profile.followingCount profile.postsCount'),
     ]);
 
     res.status(200).json({
@@ -291,6 +297,7 @@ exports.getNetworkStats = async (req, res) => {
         connectionsCount,        // عدد جهات الاتصال المقبولة
         pendingRequests,         // طلبات واردة بانتظار ردّي
         sentRequests,            // طلبات أرسلتها بانتظار الرد
+        postsCount: me.profile.postsCount || 0,
         followersCount: me.profile.followersCount || 0,
         followingCount: me.profile.followingCount || 0,
       },
@@ -313,7 +320,9 @@ exports.getMyFollowers = async (req, res) => {
       .select('profile.followers profile.followersCount')
       .populate('profile.followers', 'profile.firstName profile.lastName profile.avatar profile.headline');
 
-    res.status(200).json({ success: true, count: user.profile.followersCount, data: user.profile.followers });
+    const followers = (user.profile.followers || []).filter(Boolean);
+
+    res.status(200).json({ success: true, count: user.profile.followersCount, data: followers });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المتابعين' });
   }
@@ -328,7 +337,9 @@ exports.getMyFollowing = async (req, res) => {
       .select('profile.following profile.followingCount')
       .populate('profile.following', 'profile.firstName profile.lastName profile.avatar profile.headline');
 
-    res.status(200).json({ success: true, count: user.profile.followingCount, data: user.profile.following });
+    const following = (user.profile.following || []).filter(Boolean);
+
+    res.status(200).json({ success: true, count: user.profile.followingCount, data: following });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المتابَعين' });
   }
@@ -348,12 +359,25 @@ exports.searchUsers = async (req, res) => {
       return res.status(400).json({ success: false, message: 'يرجى إدخال نص للبحث' });
     }
 
+    // تهريب الرموز الخاصة + مطابقة البادئة أولاً للاستفادة من الفهارس والسرعة
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const prefixRegex = { $regex: `^${escaped}`, $options: 'i' };
+    const containsRegex = { $regex: escaped, $options: 'i' };
+
     const filter = {
       $or: [
-        { 'profile.firstName': { $regex: q, $options: 'i' } },
-        { 'profile.lastName': { $regex: q, $options: 'i' } },
-        { 'profile.headline': { $regex: q, $options: 'i' } },
-        { username: { $regex: q, $options: 'i' } }
+        { 'profile.firstName': prefixRegex },
+        { 'profile.lastName': prefixRegex },
+        { 'profile.headline': containsRegex },
+        { username: prefixRegex },
+        {
+          $expr: {
+            $regexMatch: {
+              input: { $toLower: { $concat: ['$profile.firstName', ' ', '$profile.lastName'] } },
+              regex: `^${escaped.toLowerCase()}`,
+            },
+          },
+        },
       ]
     };
 
@@ -372,6 +396,7 @@ exports.searchUsers = async (req, res) => {
     const myFollowing = new Set((me && me.profile.following || []).map((id) => id.toString()));
     const connMap = {};
     connections.forEach((c) => {
+      if (!c.requester || !c.recipient) return;
       const other = c.requester.toString() === req.user.id ? c.recipient : c.requester;
       connMap[other.toString()] = c.status;
     });
@@ -428,6 +453,17 @@ exports.discoverUsers = async (req, res) => {
       },
     ]);
 
+    // علامات الحالة: هل نرتبط باتصال مع المستخدم المقترح؟
+    const myConnections = await Connection.find({
+      $or: [{ requester: req.user.id }, { recipient: req.user.id }],
+    });
+    const connMap = {};
+    myConnections.forEach((c) => {
+      if (!c.requester || !c.recipient) return;
+      const other = c.requester.toString() === req.user.id ? c.recipient : c.requester;
+      connMap[other.toString()] = c.status;
+    });
+
     const data = users.map((u) => ({
       _id: u._id,
       username: u.username,
@@ -435,6 +471,7 @@ exports.discoverUsers = async (req, res) => {
       profile: u.profile,
       professional: u.professional,
       isFollowing: myFollowing.includes(u._id.toString()),
+      connectionStatus: connMap[u._id.toString()] || 'none',
     }));
 
     res.status(200).json({ success: true, count: data.length, data });

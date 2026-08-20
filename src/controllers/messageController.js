@@ -34,12 +34,32 @@ exports.getOrCreateConversation = async (req, res) => {
 // @access Private
 exports.getMyConversations = async (req, res) => {
   try {
-    const conversations = await Conversation.find({ participants: req.user._id })
+    const q = (req.query.q || '').trim();
+    const cap = Math.min(parseInt(req.query.limit) || 100, 200);
+    const baseQuery = Conversation.find({ participants: req.user._id })
       .sort({ lastMessageAt: -1 })
+      .limit(cap)
       .populate('participants', 'profile.firstName profile.lastName profile.avatar')
       .populate('lastMessage');
 
-    res.status(200).json({ success: true, data: conversations });
+    const conversations = await baseQuery;
+
+    // فلترة باسم الطرف الآخر أو بمحتوى آخر رسالة عند البحث (q)
+    const list = q
+      ? conversations.filter((c) => {
+          const peer = (c.participants || []).find(
+            (p) => p && p._id && p._id.toString() !== req.user._id.toString()
+          );
+          const name = peer && peer.profile
+            ? `${peer.profile.firstName || ''} ${peer.profile.lastName || ''}`.trim()
+            : '';
+          const lastMsg = (c.lastMessage && c.lastMessage.content) || '';
+          const needle = q.toLowerCase();
+          return name.toLowerCase().includes(needle) || lastMsg.toLowerCase().includes(needle);
+        })
+      : conversations;
+
+    res.status(200).json({ success: true, data: list });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المحادثات' });
   }

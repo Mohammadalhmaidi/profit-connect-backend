@@ -7,6 +7,7 @@ const RefreshToken = require('../models/RefreshToken');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const { buildAvatarUrl, deleteAvatarFile } = require('../utils/avatarStorage');
 const { formatUserResponse } = require('../utils/userResponse');
+const { validatePassword } = require('../utils/passwordPolicy');
 
 // دالة مساعدة لإنشاء التوكن
 const generateToken = (id) => {
@@ -23,9 +24,12 @@ const hashToken = (token) => crypto.createHash('sha256').update(token).digest('h
 
 // إنشاء ريفرش توكن جديد وتخزينه (مجزأً) في قاعدة البيانات
 const createStoredRefreshToken = async (userId, req = {}) => {
-  const refreshToken = jwt.sign({ id: userId, type: 'refresh' }, process.env.JWT_SECRET, {
-    expiresIn: `${REFRESH_EXPIRE_DAYS}d`,
-  });
+  // jti عشوائي يضمن تفرد التوكن حتى لو أُنشئ في نفس الثانية (يمنع E11000 على tokenHash)
+  const refreshToken = jwt.sign(
+    { id: userId, type: 'refresh', jti: crypto.randomBytes(16).toString('hex') },
+    process.env.JWT_SECRET,
+    { expiresIn: `${REFRESH_EXPIRE_DAYS}d` }
+  );
 
   await RefreshToken.create({
     user: userId,
@@ -104,6 +108,12 @@ exports.signup = async (req, res) => {
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ success: false, message: 'البريد الإلكتروني مسجل بالفعل' });
+    }
+
+    // 1.1 التحقق من قوة كلمة المرور
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({ success: false, message: passwordCheck.message });
     }
 
     // 2. إنشاء المستخدم الجديد
@@ -271,8 +281,9 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'رمز الاستعادة يجب أن يكون 4 أرقام' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, message: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل' });
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({ success: false, message: passwordCheck.message });
     }
 
     const token = await PasswordResetToken.findOne({

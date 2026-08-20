@@ -57,10 +57,22 @@ exports.createJob = async (req, res) => {
 exports.getJobs = async (req, res) => {
   try {
     // بناء نظام فلاتر للبحث المتقدم
-    const { type, workPlace, workLevel, limit, country, minSalary, maxSalary } = req.query;
+    const { search, type, workPlace, workLevel, limit, country, minSalary, maxSalary } = req.query;
     
     // افتراضياً نجلب الوظائف المفتوحة فقط
     let query = { status: 'Open' };
+
+    // فلتر البحث بالنص (عنوان / وصف / موقع / متطلبات / مسؤوليات)
+    if (search && String(search).trim()) {
+      const esc = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.$or = [
+        { title: { $regex: esc, $options: 'i' } },
+        { description: { $regex: esc, $options: 'i' } },
+        { location: { $regex: esc, $options: 'i' } },
+        { requirements: { $regex: esc, $options: 'i' } },
+        { responsibilities: { $regex: esc, $options: 'i' } },
+      ];
+    }
 
     // إضافة الفلاتر إذا تم إرسالها في الرابط
     if (type) query.type = type;

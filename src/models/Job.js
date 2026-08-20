@@ -18,4 +18,9 @@ const jobSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// فهارس لتسريع البحث عن الوظائف
+jobSchema.index({ title: 1 });
+jobSchema.index({ location: 1 });
+jobSchema.index({ status: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Job', jobSchema);

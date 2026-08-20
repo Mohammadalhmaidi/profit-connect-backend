@@ -7,25 +7,22 @@ const asyncHandler = require('express-async-handler');
 // @access  Private
 exports.followUser = asyncHandler(async (req, res) => {
   const userIdToFollow = req.params.userId;
-  const currentUserId = req.user.id;
+  const currentUserId = req.user._id.toString();
 
   if (userIdToFollow === currentUserId) {
-    res.status(400);
-    throw new Error('لا يمكنك متابعة نفسك');
+    return res.status(400).json({ success: false, message: 'لا يمكنك متابعة نفسك' });
   }
 
   const userToFollow = await User.findById(userIdToFollow);
   const currentUser = await User.findById(currentUserId);
 
   if (!userToFollow || !currentUser) {
-    res.status(404);
-    throw new Error('المستخدم غير موجود');
+    return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
   // Check if already following
-  if (currentUser.profile.following.includes(userIdToFollow)) {
-    res.status(400);
-    throw new Error('أنت تتابع هذا المستخدم بالفعل');
+  if (currentUser.profile.following.some((id) => id.toString() === userIdToFollow)) {
+    return res.status(400).json({ success: false, message: 'أنت تتابع هذا المستخدم بالفعل' });
   }
 
   // Add to following and followers lists
@@ -63,7 +60,11 @@ exports.followUser = asyncHandler(async (req, res) => {
 // @access  Private
 exports.unfollowUser = asyncHandler(async (req, res) => {
   const userIdToUnfollow = req.params.userId;
-  const currentUserId = req.user.id;
+  const currentUserId = req.user._id.toString();
+
+  if (userIdToUnfollow === currentUserId) {
+    return res.status(400).json({ success: false, message: 'لا يمكنك إلغاء متابعة نفسك' });
+  }
 
   const userToUnfollow = await User.findById(userIdToUnfollow);
   const currentUser = await User.findById(currentUserId);

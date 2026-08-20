@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, 'كلمة المرور مطلوبة'],
-      minlength: 6,
+      minlength: 8,
       select: false // لعدم إرجاع كلمة المرور عند جلب بيانات المستخدم
     },
     username: {
@@ -211,5 +211,10 @@ userSchema.pre('save', async function () {
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+// فهارس لتسريع البحث عن المستخدمين
+userSchema.index({ username: 1 });
+userSchema.index({ 'profile.firstName': 1, 'profile.lastName': 1 });
+userSchema.index({ 'profile.headline': 1 });
 
 module.exports = mongoose.model('User', userSchema);

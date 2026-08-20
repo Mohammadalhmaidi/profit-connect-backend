@@ -5,6 +5,7 @@ const { buildAvatarUrl, deleteAvatarFile } = require('../utils/avatarStorage');
 const { formatUserResponse } = require('../utils/userResponse');
 const RScoreService = require('../services/rScoreService');
 const { evaluateProfileCompletion } = require('../services/profileScoreService');
+const { validatePassword } = require('../utils/passwordPolicy');
 // @desc    الحصول على بيانات الملف الشخصي للمستخدم الحالي
 // @route   GET /api/user/profile
 // @access  Private (يحتاج توكن)
@@ -170,8 +171,9 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'كلمة المرور الحالية والجديدة مطلوبتان' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل' });
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({ success: false, message: passwordCheck.message });
     }
 
     const user = await User.findById(req.user._id).select('+password');
@@ -335,7 +337,8 @@ exports.getFollowers = async (req, res) => {
       .select('profile.followers profile.followersCount')
       .populate('profile.followers', 'profile.firstName profile.lastName profile.avatar profile.headline');
     if (!user) return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
-    res.status(200).json({ success: true, count: user.profile.followersCount, data: user.profile.followers });
+    const followers = (user.profile.followers || []).filter(Boolean);
+    res.status(200).json({ success: true, count: user.profile.followersCount, data: followers });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
@@ -350,7 +353,8 @@ exports.getFollowing = async (req, res) => {
       .select('profile.following profile.followingCount')
       .populate('profile.following', 'profile.firstName profile.lastName profile.avatar profile.headline');
     if (!user) return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
-    res.status(200).json({ success: true, count: user.profile.followingCount, data: user.profile.following });
+    const following = (user.profile.following || []).filter(Boolean);
+    res.status(200).json({ success: true, count: user.profile.followingCount, data: following });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }

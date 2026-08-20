@@ -1,4 +1,4 @@
-// اختبار وظيفي سريع لنظام المعرض (Portfolio)
+﻿// اختبار وظيفي سريع لنظام المعرض (Portfolio)
 // يتطلب أن يكون السيرفر شغالاً على المنفذ 5000
 const fs = require('fs');
 const path = require('path');
@@ -39,7 +39,7 @@ async function req(method, url, { token, body, form } = {}) {
     // 1) تسجيل مستخدم (multipart/form-data — كما يتوقع المسار)
     const signupForm = new FormData();
     signupForm.append('email', EMAIL);
-    signupForm.append('password', 'password123');
+    signupForm.append('password', 'Password123');
     signupForm.append('role', 'JobSeeker');
     signupForm.append('firstName', 'بورتفوليو');
     signupForm.append('lastName', 'تست');

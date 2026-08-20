@@ -29,9 +29,6 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const oauthRoutes = require('./routes/oauthRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 
-// الاتصال بقاعدة البيانات
-connectDB();
-
 // تهيئة تطبيق Express
 const app = express();
 
@@ -88,10 +85,24 @@ app.get('/', (req, res) => {
   res.send('ProfitConnect API is running... 🚀');
 });
 
+// معالج أخطاء موحد - يرجع JSON بدل HTML
+app.use((err, req, res, next) => {
+  const status = res.statusCode >= 400 ? res.statusCode : err.statusCode || 500;
+  res.status(status).json({
+    success: false,
+    message: err.message || 'خطأ في الخادم',
+  });
+});
+
 // تحديد المنفذ من المتغيرات أو استخدام 3001 كاحتياطي
 const PORT = process.env.PORT || 5000;
 
-// تشغيل السيرفر
-app.listen(PORT, () => {
-  console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
+// تشغيل السيرفر — عند التشغيل المباشر فقط (لا عند الاستيراد في الاختبارات)
+if (require.main === module) {
+  connectDB();
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  });
+}
+
+module.exports = app;
