@@ -24,3 +24,6 @@ migrate-relative-urls.js
 
 uploads/resumes/*
 !uploads/resumes/.gitkeep
+
+uploads/portfolio/*
+
