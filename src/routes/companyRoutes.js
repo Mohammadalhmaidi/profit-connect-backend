@@ -13,7 +13,8 @@ const {
   addRating, 
   getCompanyRatings, 
   deleteRating,
-  getCompanyStats
+  getCompanyStats,
+  getTopManagers
 } = require('../controllers/companyController');
 
 const {
@@ -28,6 +29,9 @@ const { uploadCompanyDocs, uploadCompanyMedia } = require('../middleware/uploadM
 
 // تطبيق الحماية
 router.use(protect);
+
+// مسار لوحة صدارة المديرين (يجب أن يكون قبل /:id لتجنب التعارض)
+router.get('/leaderboard/top-managers', getTopManagers);
 
 // مسارات الشركات
 router.route('/')

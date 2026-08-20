@@ -12,6 +12,7 @@ const computeAge = (birthDate) => {
 const formatUserResponse = (user, options = {}) => {
   const userObject = typeof user?.toObject === 'function' ? user.toObject() : user || {};
   const includePosts = options.includePosts === true;
+  const includeSettings = options.includeSettings !== false;
 
   const profile = userObject.profile
     ? { ...userObject.profile, age: computeAge(userObject.profile.birthDate) }
@@ -26,10 +27,13 @@ const formatUserResponse = (user, options = {}) => {
     professional: userObject.professional,
     employerProfile: userObject.employerProfile,
     companyEmployeeProfile: userObject.companyEmployeeProfile,
-    settings: userObject.settings,
 
     ...(includePosts && userObject.posts ? { posts: userObject.posts } : {}),
   };
+
+  if (includeSettings) {
+    response.settings = userObject.settings;
+  }
 
   // إرفاق بيانات الشركة إن وُجدت (لصاحب العمل/صاحب المشروع الحر/موظفة الشركة)
   if (userObject.company) {

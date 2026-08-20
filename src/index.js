@@ -5,8 +5,8 @@ dotenv.config(); // <-- يجب تحميل .env قبل أي شيء يقرأ proce
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const path = require('path');
+const logger = require('./utils/logger');
 
 // استدعاء دالة الاتصال بقاعدة البيانات
 const connectDB = require('./config/db');
@@ -38,8 +38,10 @@ const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,http://
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // السماح للطلبات بدون أصل (مثل أدوات مثل Postman) أو الأصول المسموحة فقط
-    if (!origin || allowedOrigins.includes(origin)) {
+    // السماح للطلبات بدون أصل (Postman، تطبيقات الجوال الأصلية، سيرفرات أخرى)
+    // أو ذات الأصل "null" (WebView/الهجينة وتطبيقات file://)
+    // أو الأصول المسموحة فقط في CLIENT_URL
+    if (!origin || origin === 'null' || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('غير مسموح بطلب من هذا الأصل (CORS)'));
@@ -80,18 +82,28 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 
+// تسجيل كل الطلبات (IP، الأسلوب، الرابط، الحالة، الوقت، المتصفح، المرجع)
+// يُكتب في ملف logs/access.log ويُطبع في موجه الأوامر
+app.use(logger.accessLog);
+app.use(logger.accessLogConsole);
+app.use(logger.accessLogConsoleErrors);
+
 // مسار تجريبي للتأكد من عمل السيرفر
 app.get('/', (req, res) => {
   res.send('ProfitConnect API is running... 🚀');
 });
 
-// معالج أخطاء موحد - يرجع JSON بدل HTML
+// مسار غير موجود
+app.use((req, res) => {
+  logger.info(`404 NOT FOUND: ${req.method} ${req.originalUrl} IP=${req.ip}`);
+  res.status(404).json({ message: 'المسار غير موجود' });
+});
+
+// معالج الأخطاء العام - يسجل أي خطأ في logs/errors.log
 app.use((err, req, res, next) => {
-  const status = res.statusCode >= 400 ? res.statusCode : err.statusCode || 500;
-  res.status(status).json({
-    success: false,
-    message: err.message || 'خطأ في الخادم',
-  });
+  logger.error(`UNHANDLED ERROR on ${req.method} ${req.originalUrl} IP=${req.ip}`, err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ success: false, message: err.message || 'حدث خطأ في الخادم' });
 });
 
 // تحديد المنفذ من المتغيرات أو استخدام 3001 كاحتياطي

@@ -57,7 +57,7 @@ exports.updateUserProfile = async (req, res) => {
 
     const {
       firstName, lastName, bio, headline, location, phoneNumber,
-      skills, industry, yearsOfExperience, socialLinks, birthDate,
+      skills, industry, yearsOfExperience, socialLinks, birthDate, gender,
       companyName, companyDescription, companyIndustry, website, companySize, foundedYear,
     } = req.body;
 
@@ -68,6 +68,9 @@ exports.updateUserProfile = async (req, res) => {
     if (location !== undefined)   user.profile.location   = String(location).trim();
     if (phoneNumber !== undefined) user.profile.phoneNumber = String(phoneNumber).trim();
     if (birthDate !== undefined)  user.profile.birthDate  = String(birthDate).trim();
+    if (gender !== undefined && ['male', 'female'].includes(gender)) {
+      user.profile.gender = gender;
+    }
     if (socialLinks !== undefined) {
       user.profile.socialLinks.linkedin = String(socialLinks.linkedin ?? '').trim();
       user.profile.socialLinks.github   = String(socialLinks.github ?? '').trim();
@@ -376,6 +379,7 @@ exports.getUserById = async (req, res) => {
     const me = await User.findById(req.user._id).select('profile.following').lean();
     const isFollowing = (me && me.profile && me.profile.following || [])
       .some((id) => id.toString() === req.params.userId);
+    const isOwnProfile = req.user._id.toString() === user._id.toString();
 
     // منشورات هذا المستخدم (لتظهر في صفحة ملفه)
     const posts = await Post.find({ user: user._id })
@@ -385,7 +389,7 @@ exports.getUserById = async (req, res) => {
       .populate({ path: 'comments.user', select: '_id role profile.firstName profile.lastName profile.fullname profile.avatar' })
       .lean();
 
-    const data = formatUserResponse(user);
+    const data = formatUserResponse(user, { includeSettings: isOwnProfile });
     data.isFollowing = isFollowing;
     data.postsCount = user.profile.postsCount || posts.length;
     data.followersCount = user.profile.followersCount || 0;
@@ -490,7 +494,7 @@ exports.getTopUsers = async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .select('username role profile.firstName profile.lastName profile.fullname profile.avatar profile.headline profile.bio profile.location profile.followersCount profile.followingCount profile.postsCount profile.rScore professional.industry professional.yearsOfExperience professional.skills createdAt')
+      .select('username role profile.firstName profile.lastName profile.fullname profile.gender profile.avatar profile.headline profile.bio profile.location profile.followersCount profile.followingCount profile.postsCount profile.rScore professional.industry professional.yearsOfExperience professional.skills createdAt')
       .sort({ 'profile.rScore': -1 })
       .limit(limit);
 
