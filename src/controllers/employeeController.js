@@ -1,4 +1,5 @@
 const Company = require('../models/Company');
+const { sanitizeError } = require('../utils/sanitizeError');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const JobApplication = require('../models/JobApplication');
@@ -124,7 +125,7 @@ exports.addEmployee = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Add Employee Error:', error.message);
+    console.error('Add Employee Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إضافة الموظف' });
   }
 };
@@ -162,7 +163,7 @@ exports.getCompanyEmployees = async (req, res) => {
       data: company.employees
     });
   } catch (error) {
-    console.error('Get Employees Error:', error.message);
+    console.error('Get Employees Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الموظفين' });
   }
 };
@@ -228,7 +229,7 @@ exports.removeEmployee = async (req, res) => {
       message: 'تم حذف الموظف بنجاح'
     });
   } catch (error) {
-    console.error('Remove Employee Error:', error.message);
+    console.error('Remove Employee Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حذف الموظف' });
   }
 };
@@ -291,7 +292,7 @@ exports.updateEmployee = async (req, res) => {
       data: employee
     });
   } catch (error) {
-    console.error('Update Employee Error:', error.message);
+    console.error('Update Employee Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تحديث بيانات الموظف' });
   }
 };
@@ -359,7 +360,7 @@ exports.getMyCompany = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get My Company Error:', error.message);
+    console.error('Get My Company Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب بيانات الشركة' });
   }
 };
@@ -426,7 +427,7 @@ exports.getCompanyJobs = async (req, res) => {
       data: jobs
     });
   } catch (error) {
-    console.error('Get Company Jobs Error:', error.message);
+    console.error('Get Company Jobs Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الوظائف' });
   }
 };
@@ -496,7 +497,7 @@ exports.createJob = async (req, res) => {
 
     res.status(201).json({ success: true, data: job });
   } catch (error) {
-    console.error('Employee Create Job Error:', error.message);
+    console.error('Employee Create Job Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء نشر الوظيفة' });
   }
 };
@@ -567,7 +568,7 @@ exports.getJobApplicants = async (req, res) => {
       data: applicants
     });
   } catch (error) {
-    console.error('Employee Get Applicants Error:', error.message);
+    console.error('Employee Get Applicants Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المتقدمين' });
   }
 };
@@ -663,7 +664,7 @@ exports.updateApplicationStatus = async (req, res) => {
       data: application
     });
   } catch (error) {
-    console.error('Employee Update Status Error:', error.message);
+    console.error('Employee Update Status Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تحديث حالة الطلب' });
   }
 };
@@ -735,7 +736,7 @@ exports.getCompanyStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get Stats Error:', error.message);
+    console.error('Get Stats Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الإحصائيات' });
   }
 };

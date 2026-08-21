@@ -1,4 +1,5 @@
 const Salary = require('../models/Salary'); // تأكد من مسار الموديل الخاص بك
+const { escapeRegex } = require('../utils/regex');
 
 // @desc    Get all salaries with filtering and pagination
 // @route   GET /api/salaries
@@ -19,20 +20,22 @@ exports.getSalaries = async (req, res) => {
         let query = {};
 
         // البحث بجزء من النص (حالة الأحرف غير حساسة - Case Insensitive)
-        if (title) query.title = { $regex: title, $options: 'i' };
-        if (country) query.country = { $regex: country, $options: 'i' };
-        if (category) query.category = { $regex: category, $options: 'i' };
+        if (title) query.title = { $regex: escapeRegex(title), $options: 'i' };
+        if (country) query.country = { $regex: escapeRegex(country), $options: 'i' };
+        if (category) query.category = { $regex: escapeRegex(category), $options: 'i' };
         
         // البحث المطابق تماماً
         if (experienceLevel) query.experienceLevel = experienceLevel;
 
         // 3. حساب تخطي الصفحات (Pagination logic)
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const safePage = Math.max(parseInt(page, 10) || 1, 1);
+        const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+        const skip = (safePage - 1) * safeLimit;
 
         // 4. جلب البيانات من قاعدة البيانات
         const salaries = await Salary.find(query)
             .skip(skip)
-            .limit(parseInt(limit))
+            .limit(safeLimit)
             .sort({ medianSalaryUSD: -1 }); // ترتيب تنازلي حسب متوسط الراتب (اختياري)
 
         // 5. حساب العدد الكلي للنتائج (مفيد لعرض أرقام الصفحات في الـ Frontend)
@@ -44,8 +47,8 @@ exports.getSalaries = async (req, res) => {
             count: salaries.length,
             pagination: {
                 totalRecords: total,
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(total / parseInt(limit))
+                currentPage: safePage,
+                totalPages: Math.ceil(total / safeLimit)
             },
             data: salaries
         });
@@ -97,8 +100,8 @@ exports.getSalaryStats = async (req, res) => {
         let matchStage = {};
 
         // إذا أرسل المستخدم مسمى وظيفي أو دولة، نفلتر الإحصائيات بناءً عليها
-        if (title) matchStage.title = { $regex: title, $options: 'i' };
-        if (country) matchStage.country = { $regex: country, $options: 'i' };
+        if (title) matchStage.title = { $regex: escapeRegex(title), $options: 'i' };
+        if (country) matchStage.country = { $regex: escapeRegex(country), $options: 'i' };
 
         const stats = await Salary.aggregate([
             { $match: matchStage }, // تصفية البيانات أولاً

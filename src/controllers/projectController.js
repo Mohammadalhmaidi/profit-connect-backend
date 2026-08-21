@@ -1,4 +1,6 @@
 const Project = require('../models/Project');
+const { sanitizeError } = require('../utils/sanitizeError');
+const { escapeRegex } = require('../utils/regex');
 const Proposal = require('../models/Proposal');
 const User = require('../models/User');
 
@@ -12,7 +14,7 @@ exports.createProject = async (req, res) => {
 
     res.status(201).json({ success: true, data: project });
   } catch (error) {
-    console.error('Create Project Error:', error.message);
+    console.error('Create Project Error:', sanitizeError(error));
 
     // أخطاء التحقق من البيانات (حقول مفقودة أو غير صالحة)
     if (error.name === 'ValidationError') {
@@ -39,9 +41,9 @@ exports.createProject = async (req, res) => {
 exports.getProjects = async (req, res) => {
   try {
     const filter = { status: 'Open' };
-    if (req.query.category) filter.category = { $regex: req.query.category, $options: 'i' };
-    if (req.query.search) filter.title = { $regex: req.query.search, $options: 'i' };
-    if (req.query.skill) filter.skills = { $in: [new RegExp(req.query.skill, 'i')] };
+    if (req.query.category) filter.category = { $regex: escapeRegex(req.query.category), $options: 'i' };
+    if (req.query.search) filter.title = { $regex: escapeRegex(req.query.search), $options: 'i' };
+    if (req.query.skill) filter.skills = { $in: [new RegExp(escapeRegex(req.query.skill), 'i')] };
 
     if (req.query.status) {
       if (req.query.status === 'all') {
@@ -78,7 +80,7 @@ exports.getProjects = async (req, res) => {
       data: projects,
     });
   } catch (error) {
-    console.error('Get Projects Error:', error.message);
+    console.error('Get Projects Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المشاريع' });
   }
 };
@@ -103,7 +105,7 @@ exports.getProjectById = async (req, res) => {
     if (error.kind === 'ObjectId') {
       return res.status(404).json({ success: false, message: 'المشروع غير موجود' });
     }
-    console.error('Get Project Error:', error.message);
+    console.error('Get Project Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -128,7 +130,7 @@ exports.updateProject = async (req, res) => {
     await project.save();
     res.status(200).json({ success: true, data: project });
   } catch (error) {
-    console.error('Update Project Error:', error.message);
+    console.error('Update Project Error:', sanitizeError(error));
 
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map((e) => e.message);
@@ -161,7 +163,7 @@ exports.deleteProject = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم حذف المشروع وعروضه بنجاح' });
   } catch (error) {
-    console.error('Delete Project Error:', error.message);
+    console.error('Delete Project Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حذف المشروع' });
   }
 };
@@ -214,7 +216,7 @@ exports.submitProposal = async (req, res) => {
 
     res.status(201).json({ success: true, data: proposal });
   } catch (error) {
-    console.error('Submit Proposal Error:', error.message);
+    console.error('Submit Proposal Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تقديم العرض' });
   }
 };
@@ -235,7 +237,7 @@ exports.getProposalsByProject = async (req, res) => {
 
     res.status(200).json({ success: true, count: proposals.length, data: proposals });
   } catch (error) {
-    console.error('Get Proposals Error:', error.message);
+    console.error('Get Proposals Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -252,7 +254,7 @@ exports.getMyProposals = async (req, res) => {
 
     res.status(200).json({ success: true, count: proposals.length, data: proposals });
   } catch (error) {
-    console.error('Get My Proposals Error:', error.message);
+    console.error('Get My Proposals Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -316,7 +318,7 @@ exports.acceptProposal = async (req, res) => {
       data: { project, proposal },
     });
   } catch (error) {
-    console.error('Accept Proposal Error:', error.message);
+    console.error('Accept Proposal Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء قبول العرض' });
   }
 };
@@ -341,7 +343,7 @@ exports.completeProject = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم تأكيد اكتمال المشروع', data: project });
   } catch (error) {
-    console.error('Complete Project Error:', error.message);
+    console.error('Complete Project Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إنهاء المشروع' });
   }
 };
@@ -386,7 +388,7 @@ exports.rejectProposal = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم رفض العرض', data: proposal });
   } catch (error) {
-    console.error('Reject Proposal Error:', error.message);
+    console.error('Reject Proposal Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء رفض العرض' });
   }
 };
@@ -397,7 +399,7 @@ exports.getNotifications = async (req, res) => {
     const notifications = (user.notifications || []).reverse();
     res.status(200).json({ success: true, count: notifications.length, data: notifications });
   } catch (error) {
-    console.error('Get Notifications Error:', error.message);
+    console.error('Get Notifications Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -411,7 +413,7 @@ exports.getRecentNotifications = async (req, res) => {
     ).reverse();
     res.status(200).json({ success: true, count: notifications.length, data: notifications });
   } catch (error) {
-    console.error('Get Recent Notifications Error:', error.message);
+    console.error('Get Recent Notifications Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -428,7 +430,7 @@ exports.markNotificationRead = async (req, res) => {
     await user.save();
     res.status(200).json({ success: true, data: notification });
   } catch (error) {
-    console.error('Mark Notification Error:', error.message);
+    console.error('Mark Notification Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -441,7 +443,7 @@ exports.markAllNotificationsRead = async (req, res) => {
     );
     res.status(200).json({ success: true, message: 'تم تعليم جميع الإشعارات كمقروءة' });
   } catch (error) {
-    console.error('Mark All Notifications Error:', error.message);
+    console.error('Mark All Notifications Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -473,7 +475,7 @@ exports.getMyProjectsWithProposals = async (req, res) => {
 
     res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
-    console.error('Get My Projects With Proposals Error:', error.message);
+    console.error('Get My Projects With Proposals Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -498,7 +500,7 @@ function sendError(res, error, fallbackMsg) {
   if (error.code === 11000) {
     return res.status(400).json({ success: false, message: 'قيمة مكررة' });
   }
-  console.error('Project Management Error:', error.message);
+  console.error('Project Management Error:', sanitizeError(error));
   return res.status(500).json({ success: false, message: fallbackMsg });
 }
 
@@ -530,7 +532,7 @@ async function loadOwnedProject(id, userId) {
 exports.getProjectOverview = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const obj = project.toObject();
     obj.progress = computeProgress(project);
@@ -556,7 +558,7 @@ exports.getProjectOverview = async (req, res) => {
 exports.manageProject = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const allowed = ['startDate', 'endDate', 'publishedAt', 'status'];
     for (const field of allowed) {
@@ -589,7 +591,7 @@ exports.manageProject = async (req, res) => {
 exports.getProjectTeam = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
     res.status(200).json({ success: true, count: project.team.length, data: project.team });
   } catch (err) {
     sendError(res, err, 'حدث خطأ أثناء جلب الفريق');
@@ -602,7 +604,7 @@ exports.getProjectTeam = async (req, res) => {
 exports.addTeamMember = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const { freelancerId, role, status } = req.body;
     if (!freelancerId) {
@@ -630,7 +632,7 @@ exports.addTeamMember = async (req, res) => {
 exports.updateTeamMember = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const member = project.team.id(req.params.memberId);
     if (!member) return res.status(404).json({ success: false, message: 'العضو غير موجود في الفريق' });
@@ -653,7 +655,7 @@ exports.updateTeamMember = async (req, res) => {
 exports.removeTeamMember = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const member = project.team.id(req.params.memberId);
     if (!member) return res.status(404).json({ success: false, message: 'العضو غير موجود في الفريق' });
@@ -676,7 +678,7 @@ exports.removeTeamMember = async (req, res) => {
 exports.getProjectMilestones = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
     res.status(200).json({ success: true, count: project.milestones.length, data: project.milestones });
   } catch (err) {
     sendError(res, err, 'حدث خطأ أثناء جلب المراحل');
@@ -689,7 +691,7 @@ exports.getProjectMilestones = async (req, res) => {
 exports.addMilestone = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const { title, description, startDate, endDate, assignedTo, status, progress } = req.body;
     if (!title) {
@@ -719,7 +721,7 @@ exports.addMilestone = async (req, res) => {
 exports.updateMilestone = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const ms = project.milestones.id(req.params.milestoneId);
     if (!ms) return res.status(404).json({ success: false, message: 'المرحلة غير موجودة' });
@@ -749,7 +751,7 @@ exports.updateMilestone = async (req, res) => {
 exports.deleteMilestone = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const ms = project.milestones.id(req.params.milestoneId);
     if (!ms) return res.status(404).json({ success: false, message: 'المرحلة غير موجودة' });
@@ -773,7 +775,7 @@ exports.deleteMilestone = async (req, res) => {
 exports.getProjectPayments = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const total = project.payments.reduce((s, p) => s + p.amount, 0);
     const paid = project.payments.filter((p) => p.status === 'Paid').reduce((s, p) => s + p.amount, 0);
@@ -795,7 +797,7 @@ exports.getProjectPayments = async (req, res) => {
 exports.addPayment = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const { title, amount, dueDate, method, note } = req.body;
     if (amount === undefined || amount === null || amount === '') {
@@ -824,7 +826,7 @@ exports.addPayment = async (req, res) => {
 exports.updatePayment = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const payment = project.payments.id(req.params.paymentId);
     if (!payment) return res.status(404).json({ success: false, message: 'الدفعة غير موجودة' });
@@ -851,7 +853,7 @@ exports.updatePayment = async (req, res) => {
 exports.deletePayment = async (req, res) => {
   try {
     const { project, error } = await loadOwnedProject(req.params.id, req.user._id);
-    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (error) return res.status(error.status).json({ success: false, message: sanitizeError(error) });
 
     const payment = project.payments.id(req.params.paymentId);
     if (!payment) return res.status(404).json({ success: false, message: 'الدفعة غير موجودة' });

@@ -24,6 +24,8 @@ describe('OAuth Google', () => {
         email_verified: 'true',
         given_name: 'Google',
         family_name: 'User',
+        iss: 'accounts.google.com',
+        aud: 'test-client',
         ...overrides,
       }),
     });

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { sanitizeError } = require('../utils/sanitizeError');
 const User = require('../models/User');
 
 exports.protect = async (req, res, next) => {
@@ -55,7 +56,7 @@ exports.protect = async (req, res, next) => {
       // 5. السماح للطلب بالمرور إلى الـ Controller التالي
       next();
     } catch (error) {
-      console.error('Auth Error:', error.message);
+      console.error('Auth Error:', sanitizeError(error));
       return res.status(401).json({
         success: false,
         message: 'غير مصرح لك بالوصول، التوكن غير صالح أو منتهي الصلاحية',

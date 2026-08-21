@@ -1,5 +1,6 @@
 //استدعاء مكتبة المونغو ديبي 
 const mongoose = require('mongoose');
+const { sanitizeError } = require('../utils/sanitizeError');
 
 
 //تابع للاتصال بقاعدة البيانات
@@ -10,7 +11,7 @@ const connectDB = async () => {
     
     console.log(`✅ MongoDB Connected Successfully: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`❌ Error connecting to MongoDB: ${error.message}`);
+    console.error(`❌ Error connecting to MongoDB: ${sanitizeError(error)}`);
     // إيقاف الخادم في حال فشل الاتصال بقاعدة البيانات
     process.exit(1);
   }

@@ -1,5 +1,6 @@
 const RScoreService = require('./rScoreService');
 const { evaluateContent, evaluateWithContext } = require('./aiEvaluationService');
+const { sanitizeError } = require('../utils/sanitizeError');
 
 const FIELD_ACTIONS = {
   'profile.headline':               'ADD_HEADLINE',
@@ -40,7 +41,7 @@ const runAiEvaluation = async (userId, actionKey, content, prompt, label) => {
         await RScoreService.applyScore(userId, actionKey, `${label}: ${score} نقاط`, score);
       }
     } catch (e) {
-      console.error(`[Profile AI Error - ${actionKey}]:`, e.message);
+      console.error(`[Profile AI Error - ${actionKey}]:`, sanitizeError(e));
     }
   });
 };

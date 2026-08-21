@@ -1,11 +1,14 @@
 const User = require('../models/User');
+const { sanitizeError } = require('../utils/sanitizeError');
 const Post = require('../models/Post');
+const Job = require('../models/Job');
 const Company = require('../models/Company');
 const { buildAvatarUrl, deleteAvatarFile } = require('../utils/avatarStorage');
 const { formatUserResponse } = require('../utils/userResponse');
 const RScoreService = require('../services/rScoreService');
 const { evaluateProfileCompletion } = require('../services/profileScoreService');
 const { validatePassword } = require('../utils/passwordPolicy');
+const RefreshToken = require('../models/RefreshToken');
 // @desc    الحصول على بيانات الملف الشخصي للمستخدم الحالي
 // @route   GET /api/user/profile
 // @access  Private (يحتاج توكن)
@@ -41,7 +44,7 @@ exports.getUserProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Profile Error:', error.message);
+    console.error('Profile Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -158,7 +161,7 @@ exports.deleteUserProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete Profile Error:', error.message);
+    console.error('Delete Profile Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حذف الحساب' });
   }
 };
@@ -192,9 +195,12 @@ exports.changePassword = async (req, res) => {
     user.password = newPassword;
     await user.save();
 
+    // إبطال جميع جلسات المستخدم بعد تغيير كلمة المرور
+    await RefreshToken.deleteMany({ user: user._id });
+
     res.status(200).json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
   } catch (error) {
-    console.error('Change Password Error:', error.message);
+    console.error('Change Password Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تغيير كلمة المرور' });
   }
 };
@@ -241,7 +247,7 @@ exports.exportData = async (req, res) => {
 
     res.status(200).json({ success: true, data: exportData });
   } catch (error) {
-    console.error('Export Data Error:', error.message);
+    console.error('Export Data Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تصدير البيانات' });
   }
 };
@@ -398,7 +404,7 @@ exports.getUserById = async (req, res) => {
 
     res.status(200).json({ success: true, data });
   } catch (error) {
-    console.error('Get User By Id Error:', error.message);
+    console.error('Get User By Id Error:', sanitizeError(error));
     // معالجة خطأ كتابة ID بصيغة غير صحيحة
     if (error.kind === 'ObjectId') {
       return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
@@ -428,7 +434,7 @@ exports.savePost = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم حفظ المنشور بنجاح' });
   } catch (error) {
-    console.error('Save Post Error:', error.message);
+    console.error('Save Post Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حفظ المنشور' });
   }
 };
@@ -448,7 +454,7 @@ exports.unsavePost = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم إلغاء حفظ المنشور بنجاح' });
   } catch (error) {
-    console.error('Unsave Post Error:', error.message);
+    console.error('Unsave Post Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إلغاء حفظ المنشور' });
   }
 };
@@ -463,10 +469,78 @@ exports.getSavedPosts = async (req, res) => {
       populate: { path: 'user', select: 'profile.firstName profile.lastName profile.headline profile.avatar' }
     });
 
-    res.status(200).json({ success: true, count: user.savedPosts.length, data: user.savedPosts });
+    const savedPosts = user.savedPosts.map((post) => {
+      const p = post.toObject ? post.toObject() : post;
+      p.isSaved = true;
+      return p;
+    });
+
+    res.status(200).json({ success: true, count: savedPosts.length, data: savedPosts });
   } catch (error) {
-    console.error('Get Saved Posts Error:', error.message);
+    console.error('Get Saved Posts Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المنشورات المحفوظة' });
+  }
+};
+
+// @desc    حفظ وظيفة
+// @route   POST /api/user/saved-jobs/:jobId
+// @access  Private
+exports.saveJob = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.jobId);
+    if (!job) return res.status(404).json({ success: false, message: 'الوظيفة غير موجودة' });
+
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $addToSet: { savedJobs: req.params.jobId } },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, message: 'تم حفظ الوظيفة بنجاح' });
+  } catch (error) {
+    console.error('Save Job Error:', sanitizeError(error));
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء حفظ الوظيفة' });
+  }
+};
+
+// @desc    إلغاء حفظ وظيفة
+// @route   DELETE /api/user/saved-jobs/:jobId
+// @access  Private
+exports.unsaveJob = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { savedJobs: req.params.jobId } },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, message: 'تم إلغاء حفظ الوظيفة بنجاح' });
+  } catch (error) {
+    console.error('Unsave Job Error:', sanitizeError(error));
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء إلغاء حفظ الوظيفة' });
+  }
+};
+
+// @desc    جلب الوظائف المحفوظة
+// @route   GET /api/user/saved-jobs
+// @access  Private
+exports.getSavedJobs = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({
+      path: 'savedJobs',
+      populate: { path: 'company', select: 'name logo location' }
+    });
+
+    const savedJobs = user.savedJobs.map((job) => {
+      const j = job.toObject ? job.toObject() : job;
+      j.isSaved = true;
+      return j;
+    });
+
+    res.status(200).json({ success: true, count: savedJobs.length, data: savedJobs });
+  } catch (error) {
+    console.error('Get Saved Jobs Error:', sanitizeError(error));
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الوظائف المحفوظة' });
   }
 };
 
@@ -475,7 +549,7 @@ exports.getReputationScore = async (req, res) => {
     const { score, level } = await RScoreService.getUserScoreDetails(req.user._id);
     res.status(200).json({ success: true, data: { score, level } });
   } catch (error) {
-    console.error('Get Reputation Score Error:', error.message);
+    console.error('Get Reputation Score Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب نقاط السمعة' });
   }
 };
@@ -511,7 +585,7 @@ exports.getTopUsers = async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Get Top Users Error:', error.message);
+    console.error('Get Top Users Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب أفضل المستخدمين' });
   }
 };

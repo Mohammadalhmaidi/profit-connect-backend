@@ -1,5 +1,6 @@
 
 const jwt = require('jsonwebtoken');
+const { sanitizeError } = require('../utils/sanitizeError');
 const crypto = require('crypto');
 const User = require('../models/User');
 const Post = require('../models/Post');
@@ -159,11 +160,11 @@ exports.signup = async (req, res) => {
     if (req.file) {
       await deleteAvatarFile(buildAvatarUrl(req, req.file.filename));
     }
-    console.error('[signup-500] message:', error.message);
+    console.error('[signup-500] message:', sanitizeError(error));
     console.error('[signup-500] email/role:', req.body?.email, req.body?.role);
     console.error('[signup-500] keys:', Object.keys(req.body || {}).join(','));
     console.error('[signup-500] body:', JSON.stringify(req.body)?.slice(0, 600));
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeError(error) });
   }
 };
 
@@ -215,7 +216,7 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeError(error) });
   }
 };
 
@@ -252,17 +253,19 @@ exports.forgotPassword = async (req, res) => {
       expiresAt: new Date(Date.now() + RESET_CODE_EXPIRE_MINUTES * 60 * 1000),
     });
 
-    console.log(`[Password Reset] رمز الاستعادة لـ ${email}: ${code}`);
+    if (process.env.NODE_ENV !== 'production') {
+      // للعرض التجريبي فقط (لا يوجد مزوّد إيميل) — يُحذف عند ربط خدمة إرسال حقيقية
+      console.log(`[Password Reset] رمز الاستعادة لـ ${email}: ${code}`);
+    }
 
     res.status(200).json({
       success: true,
       message: 'تم إرسال رمز الاستعادة إلى بريدك الإلكتروني',
-      // لأغراض العرض التجريبي (لا يوجد مزوّد إيميل) — يُحذف عند ربط خدمة إرسال حقيقية
-      demoCode: code,
+      ...(process.env.NODE_ENV !== 'production' ? { demoCode: code } : {}),
       expiresInMinutes: RESET_CODE_EXPIRE_MINUTES,
     });
   } catch (error) {
-    console.error('Forgot Password Error:', error.message);
+    console.error('Forgot Password Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إرسال رمز الاستعادة' });
   }
 };
@@ -316,7 +319,7 @@ exports.resetPassword = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم إعادة تعيين كلمة المرور بنجاح' });
   } catch (error) {
-    console.error('Reset Password Error:', error.message);
+    console.error('Reset Password Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إعادة تعيين كلمة المرور' });
   }
 };
@@ -373,7 +376,7 @@ exports.getCurrentUser = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeError(error) });
   }
 };
 
@@ -424,7 +427,7 @@ exports.refresh = async (req, res) => {
       user: formatUserResponse(user),
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeError(error) });
   }
 };
 
@@ -446,7 +449,7 @@ exports.logout = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم تسجيل الخروج وإبطال الجلسة بنجاح' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeError(error) });
   }
 };
 

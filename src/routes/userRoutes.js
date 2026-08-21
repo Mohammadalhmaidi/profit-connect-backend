@@ -1,4 +1,5 @@
 const express = require('express');
+const { sanitizeError } = require('../utils/sanitizeError');
 const router = express.Router();
 
 const { 
@@ -18,6 +19,9 @@ const {
   savePost,
   unsavePost,
   getSavedPosts,
+  saveJob,
+  unsaveJob,
+  getSavedJobs,
   getTopUsers
 } = require('../controllers/userController');
 
@@ -30,7 +34,7 @@ const avatarUploadHandler = (req, res, next) => {
     if (error) {
       return res.status(400).json({
         success: false,
-        message: error.message,
+        message: sanitizeError(error),
       });
     }
 
@@ -55,6 +59,9 @@ router.get('/leaderboard/top-users', getTopUsers);
 router.post('/saved-posts/:postId', protect, savePost);
 router.delete('/saved-posts/:postId', protect, unsavePost);
 router.get('/saved-posts', protect, getSavedPosts);
+router.post('/saved-jobs/:jobId', protect, saveJob);
+router.delete('/saved-jobs/:jobId', protect, unsaveJob);
+router.get('/saved-jobs', protect, getSavedJobs);
 router.get('/:userId', protect, getUserById);
 
 module.exports = router;

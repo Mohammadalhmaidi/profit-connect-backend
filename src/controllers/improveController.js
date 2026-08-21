@@ -1,4 +1,5 @@
 const { improveContent } = require('../services/aiEvaluationService');
+const { sanitizeError } = require('../utils/sanitizeError');
 
 exports.improve = async (req, res) => {
   try {
@@ -17,7 +18,7 @@ exports.improve = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Improve Error:', error.message);
+    console.error('Improve Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'فشل تحسين النص. تحقق من اتصال الذكاء الاصطناعي' });
   }
 };

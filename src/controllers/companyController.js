@@ -1,4 +1,6 @@
 const Company = require('../models/Company');
+const { sanitizeError } = require('../utils/sanitizeError');
+const { escapeRegex } = require('../utils/regex');
 const Job = require('../models/Job');
 const { buildCompanyDocUrl } = require('../utils/companyStorage');
 const { buildCompanyMediaUrl, deleteCompanyMediaFile } = require('../utils/companyMedia');
@@ -109,9 +111,13 @@ exports.createCompany = async (req, res) => {
       data: company
     });
   } catch (error) {
-    console.error('Create Company Error:', error.message);
+    console.error('Create Company Error:', sanitizeError(error));
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: 'اسم الشركة مستخدم بالفعل' });
+    }
+    if (error.name === 'ValidationError') {
+      const missing = Object.values(error.errors || {}).map((e) => e.message).join('، ');
+      return res.status(400).json({ success: false, message: missing || 'بيانات الشركة غير مكتملة' });
     }
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إنشاء الشركة' });
   }
@@ -136,10 +142,10 @@ exports.getCompanies = async (req, res) => {
     }
 
     if (req.query.industry) {
-      filter.industry = { $regex: req.query.industry, $options: 'i' };
+      filter.industry = { $regex: escapeRegex(req.query.industry), $options: 'i' };
     }
     if (req.query.search) {
-      filter.name = { $regex: req.query.search, $options: 'i' };
+      filter.name = { $regex: escapeRegex(req.query.search), $options: 'i' };
     }
 
     let sortOption = { createdAt: -1 };
@@ -244,7 +250,7 @@ exports.toggleFollowCompany = async (req, res) => {
       followersCount: company.followersCount
     });
   } catch (error) {
-    console.error('Follow Company Error:', error.message);
+    console.error('Follow Company Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء معالجة المتابعة' });
   }
 };
@@ -290,7 +296,7 @@ exports.addCompanyAdmin = async (req, res) => {
       adminsCount: company.admins.length
     });
   } catch (error) {
-    console.error('Add Admin Error:', error.message);
+    console.error('Add Admin Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إضافة المدير' });
   }
 };
@@ -376,7 +382,7 @@ exports.updateCompany = async (req, res) => {
     await company.save();
     res.status(200).json({ success: true, data: company });
   } catch (error) {
-    console.error('Update Company Error:', error.message);
+    console.error('Update Company Error:', sanitizeError(error));
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: 'اسم الشركة مستخدم بالفعل' });
     }
@@ -401,7 +407,7 @@ exports.deleteCompany = async (req, res) => {
     await company.deleteOne();
     res.status(200).json({ success: true, message: 'تم حذف الشركة بنجاح' });
   } catch (error) {
-    console.error('Delete Company Error:', error.message);
+    console.error('Delete Company Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حذف الشركة' });
   }
 };
@@ -435,7 +441,7 @@ exports.updateCompanyStatus = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم تحديث حالة الشركة بنجاح', data: { status: company.status, isVerified: company.isVerified } });
   } catch (error) {
-    console.error('Update Status Error:', error.message);
+    console.error('Update Status Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تحديث الحالة' });
   }
 };
@@ -466,7 +472,7 @@ exports.getCompanyFollowers = async (req, res) => {
     if (error.kind === 'ObjectId') {
       return res.status(404).json({ success: false, message: 'الشركة غير موجودة' });
     }
-    console.error('Get Followers Error:', error.message);
+    console.error('Get Followers Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -512,7 +518,7 @@ exports.addRating = async (req, res) => {
       ratingsCount: company.ratings.length,
     });
   } catch (error) {
-    console.error('Add Rating Error:', error.message);
+    console.error('Add Rating Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إضافة التقييم' });
   }
 };
@@ -539,7 +545,7 @@ exports.getCompanyRatings = async (req, res) => {
     if (error.kind === 'ObjectId') {
       return res.status(404).json({ success: false, message: 'الشركة غير موجودة' });
     }
-    console.error('Get Ratings Error:', error.message);
+    console.error('Get Ratings Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ في الخادم' });
   }
 };
@@ -573,7 +579,7 @@ exports.deleteRating = async (req, res) => {
       ratingsCount: company.ratings.length,
     });
   } catch (error) {
-    console.error('Delete Rating Error:', error.message);
+    console.error('Delete Rating Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء حذف التقييم' });
   }
 };
@@ -830,7 +836,7 @@ exports.getCompanyStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get Company Stats Error:', error.message);
+    console.error('Get Company Stats Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الإحصائيات' });
   }
 };
@@ -946,7 +952,7 @@ exports.getTopManagers = async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Get Top Managers Error:', error.message);
+    console.error('Get Top Managers Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب أفضل المديرين' });
   }
 };

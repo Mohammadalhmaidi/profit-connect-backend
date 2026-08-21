@@ -6,6 +6,7 @@ const aiDetector = require('../middleware/aiDetector');
 const { applyWarning } = require('../services/moderationService');
 const { buildPostImageUrl, deletePostImage, buildPostVideoUrl, deletePostVideo } = require('../utils/postImageStorage');
 const { sanitizePostContent } = require('../utils/sanitizeContent');
+const { sanitizeError } = require('../utils/sanitizeError');
 
 function senderName(user) {
   return user?.profile?.fullname || user?.username || 'مستخدم';
@@ -25,12 +26,31 @@ async function pushPostNotification(userId, payload) {
 // @access  Private (يحتاج توكن)
 exports.createPost = async (req, res) => {
  try {
-    const { content, visibility } = req.body;
+    const { content, visibility, hashtags, postType, budget, deadline } = req.body;
     const sanitizedContent = sanitizePostContent(content);
     const files = req.files || {};
     const image = files.image?.[0] ? buildPostImageUrl(req, files.image[0].filename) : null;
     const video = files.video?.[0] ? buildPostVideoUrl(req, files.video[0].filename) : null;
-    const newPost = await Post.create({ user: req.user._id, content: sanitizedContent, image, video, visibility });
+
+    const parsedHashtags = Array.isArray(hashtags)
+      ? hashtags.map((h) => String(h).replace(/^#/, '').trim()).filter(Boolean).slice(0, 10)
+      : typeof hashtags === 'string' && hashtags.trim()
+        ? hashtags.split(',').map((h) => h.trim().replace(/^#/, '')).filter(Boolean).slice(0, 10)
+        : [];
+    const parsedBudget = budget !== undefined && budget !== null && budget !== '' ? Number(budget) : null;
+    const parsedDeadline = deadline && deadline !== '' ? new Date(deadline) : null;
+
+    const newPost = await Post.create({
+      user: req.user._id,
+      content: sanitizedContent,
+      image,
+      video,
+      visibility: visibility === 'private' ? 'private' : 'public',
+      hashtags: parsedHashtags,
+      postType: ['general', 'hiring', 'project', 'question', 'announcement'].includes(postType) ? postType : 'general',
+      budget: parsedBudget && !Number.isNaN(parsedBudget) ? parsedBudget : null,
+      deadline: parsedDeadline && !Number.isNaN(parsedDeadline.getTime()) ? parsedDeadline : null
+    });
 
     // زيادة عداد المنشورات للمستخدم
     await User.findByIdAndUpdate(req.user._id, { $inc: { 'profile.postsCount': 1 } });
@@ -69,9 +89,9 @@ exports.createPost = async (req, res) => {
               }
             });
           }
-        } catch (e) {
-          console.error('[Post AI Error]:', e.message);
-        }
+} catch (e) {
+      console.error('[Post AI Error]:', sanitizeError(e));
+    }
       });
     }
 
@@ -98,6 +118,12 @@ exports.getPosts = async (req, res) => {
       .map((id) => id.toString());
     const authors = [...following, req.user._id.toString()];
     const filter = { user: { $in: authors } };
+
+    // فلترة حسب الهاشتاغ (#tag بدون #)
+    if (req.query.hashtag) {
+      const tag = String(req.query.hashtag).replace(/^#/, '').trim();
+      if (tag) filter.hashtags = tag;
+    }
 
     // جلب المنشورات وترتيبها من الأحدث للأقدم
     const posts = await Post.find(filter)
@@ -128,7 +154,7 @@ exports.getPosts = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get Posts Error:', error.message);
+    console.error('Get Posts Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المنشورات' });
   }
 };
@@ -153,7 +179,7 @@ exports.getPost = async (req, res) => {
 
     res.status(200).json({ success: true, data: post });
   } catch (error) {
-    console.error('Get Post Error:', error.message);
+    console.error('Get Post Error:', sanitizeError(error));
     if (error.kind === 'ObjectId') {
       return res.status(404).json({ success: false, message: 'المنشور غير موجود' });
     }
@@ -209,9 +235,6 @@ exports.toggleLike = async (req, res) => {
 exports.addComment = async (req, res) => {
   try {
     const { content } = req.body;
-    console.log('[AddComment Debug] req.body:', req.body);
-    console.log('[AddComment Debug] req.params.postId:', req.params.postId);
-    console.log('[AddComment Debug] content value:', content);
 
     if (!content) {
       return res.status(400).json({ success: false, message: 'محتوى التعليق مطلوب' });
@@ -235,7 +258,6 @@ exports.addComment = async (req, res) => {
 
     await post.save();
     const savedComment = post.comments[post.comments.length - 1];
-    console.log('[AddComment Debug] Saved comment content:', savedComment?.content, '| Post ID:', post._id);
 
     // إشعار لصاحب المنشور بوجود تعليق جديد
     if (post.user.toString() !== req.user._id.toString()) {
@@ -262,7 +284,7 @@ exports.addComment = async (req, res) => {
           await RScoreService.applyScore(req.user._id, 'ADD_COMMENT', `جودة التعليق: ${score} نقاط`, score);
         }
       } catch (e) {
-        console.error('[Comment AI Error]:', e.message);
+        console.error('[Comment AI Error]:', sanitizeError(e));
       }
     });
 
@@ -270,12 +292,25 @@ exports.addComment = async (req, res) => {
       success: true,
       message: 'تمت إضافة التعليق بنجاح',
       commentsCount: post.comments.length,
-      username: req.user.username,
-      fullname: req.user.profile.fullname,
-      avatar: req.user.profile.avatar
+      comment: {
+        _id: addedComment._id,
+        user: {
+          _id: req.user._id,
+          username: req.user.username,
+          profile: {
+            firstName: req.user.profile?.firstName,
+            lastName: req.user.profile?.lastName,
+            fullname: req.user.profile?.fullname,
+            avatar: req.user.profile?.avatar
+          }
+        },
+        content: addedComment.content,
+        createdAt: addedComment.createdAt,
+        likes: []
+      }
     });
   } catch (error) {
-    console.error('Comment Error:', error.message);
+    console.error('Comment Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إضافة التعليق' });
   }
 };
@@ -337,7 +372,7 @@ exports.updatePost = async (req, res) => {
             });
           }
         } catch (e) {
-          console.error('[Post AI Detect Error]:', e.message);
+          console.error('[Post AI Detect Error]:', sanitizeError(e));
         }
       });
     }
@@ -451,7 +486,7 @@ exports.sharePost = async (req, res) => {
 
     res.status(200).json({ success: true, shareCount: post.shareCount });
   } catch (error) {
-    console.error('Share Post Error:', error.message);
+    console.error('Share Post Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء مشاركة المنشور' });
   }
 };
@@ -495,7 +530,7 @@ exports.toggleCommentLike = async (req, res) => {
       likesCount: comment.likes.length
     });
   } catch (error) {
-    console.error('Comment Like Error:', error.message);
+    console.error('Comment Like Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء معالجة إعجاب التعليق' });
   }
 };

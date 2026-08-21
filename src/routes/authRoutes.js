@@ -1,4 +1,5 @@
 const express = require('express');
+const { sanitizeError } = require('../utils/sanitizeError');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { uploadAvatar } = require('../middleware/uploadMiddleware');
@@ -11,7 +12,7 @@ const signupAvatarUploadHandler = (req, res, next) => {
     if (error) {
       return res.status(400).json({
         success: false,
-        message: error.message,
+        message: sanitizeError(error),
       });
     }
 

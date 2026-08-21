@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { formatUserResponse } = require('../utils/userResponse');
+const { sanitizeError } = require('../utils/sanitizeError');
 const {
   generateToken,
   createStoredRefreshToken,
@@ -18,6 +19,14 @@ async function verifyGoogleIdToken(idToken) {
   if (!data.email || data.email_verified !== 'true') {
     throw new Error('Google email is not verified');
   }
+  const allowedIssuers = ['accounts.google.com', 'https://accounts.google.com'];
+  if (!allowedIssuers.includes(data.iss)) {
+    throw new Error('Google token issuer is invalid');
+  }
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (clientId && data.aud !== clientId) {
+    throw new Error('Google token audience does not match this application');
+  }
   return data;
 }
 
@@ -35,7 +44,10 @@ exports.google = async (req, res) => {
     try {
       googleUser = await verifyGoogleIdToken(idToken);
     } catch (error) {
-      return res.status(401).json({ success: false, message: 'تعذر التحقق من حساب Google: ' + error.message });
+      console.error('[OAuth Google Verify Error]:', sanitizeError(error));
+      return res
+        .status(401)
+        .json({ success: false, message: 'تعذر التحقق من حساب Google' });
     }
 
     if (email && googleUser.email.toLowerCase() !== email.toLowerCase()) {
@@ -74,6 +86,9 @@ exports.google = async (req, res) => {
       user: formatUserResponse(user),
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[OAuth Google 500]:', sanitizeError(error));
+    res
+      .status(500)
+      .json({ success: false, message: 'حدث خطأ أثناء تسجيل الدخول عبر Google' });
   }
 };

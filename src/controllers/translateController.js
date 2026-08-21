@@ -1,4 +1,5 @@
 const { translateContent } = require('../services/aiEvaluationService');
+const { sanitizeError } = require('../utils/sanitizeError');
 
 const GOOGLE_TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single';
 
@@ -37,7 +38,7 @@ exports.translate = async (req, res) => {
     try {
       translated = await translateContent(text);
     } catch (aiError) {
-      console.warn('AI translate failed, falling back to Google Translate:', aiError.message);
+      console.warn('AI translate failed, falling back to Google Translate:', sanitizeError(aiError));
       translated = await googleTranslate(text);
     }
 
@@ -49,7 +50,7 @@ exports.translate = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Translate Error:', error.message);
+    console.error('Translate Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء الترجمة' });
   }
 };

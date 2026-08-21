@@ -186,7 +186,8 @@ const userSchema = new mongoose.Schema(
       read: { type: Boolean, default: false },
       createdAt: { type: Date, default: Date.now }
     }],
-    savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }]
+    savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+    savedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Job' }]
   }, // 👈 هنا تم إغلاق كائن الحقول بالكامل وبشكل صحيح
   { timestamps: true } // 👈 هنا المعامل الثاني (الإعدادات)
 );

@@ -1,4 +1,5 @@
 const express = require('express');
+const { sanitizeError } = require('../utils/sanitizeError');
 const router = express.Router();
 const { commentLimiter } = require('../middleware/rateLimiter');
 const { 
@@ -23,7 +24,7 @@ const postMediaUpload = (req, res, next) => {
     { name: 'video', maxCount: 1 },
   ])(req, res, (error) => {
     if (error) {
-      return res.status(400).json({ success: false, message: error.message });
+      return res.status(400).json({ success: false, message: sanitizeError(error) });
     }
     next();
   });

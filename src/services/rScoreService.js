@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { sanitizeError } = require('../utils/sanitizeError');
 const ScoreHistory = require('../models/ScoreHistory');
 const SCORE_RULES = require('../../constants/scoreRules');
 
@@ -88,7 +89,7 @@ class RScoreService {
 
       return true;
     } catch (error) {
-      console.error(`[R-Score Error] Failed to apply score for user ${userId}:`, error.message);
+      console.error(`[R-Score Error] Failed to apply score for user ${userId}:`, sanitizeError(error));
       return false; // نرجع false كي لا يتوقف التطبيق بسبب خطأ في النقاط
     }
   }
@@ -111,7 +112,7 @@ class RScoreService {
 
       return { score, level };
     } catch (error) {
-      console.error(`[R-Score Error] Failed to fetch score details:`, error.message);
+      console.error(`[R-Score Error] Failed to fetch score details:`, sanitizeError(error));
       return { score: 0, level: 'Beginner' };
     }
   }

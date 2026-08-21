@@ -1,4 +1,6 @@
 const Job = require('../models/Job');
+const { sanitizeError } = require('../utils/sanitizeError');
+const { escapeRegex } = require('../utils/regex');
 const Company = require('../models/Company');
 const JobApplication = require('../models/JobApplication');
 const { buildResumeUrl, deleteResumeFile } = require('../utils/resumeStorage');
@@ -44,8 +46,8 @@ exports.createJob = async (req, res) => {
 
     res.status(201).json({ success: true, data: job });
   } catch (error) {
-    console.error('Create Job Error:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Create Job Error:', sanitizeError(error));
+    res.status(500).json({ success: false, message: sanitizeError(error) });
   }
 };
 
@@ -57,14 +59,14 @@ exports.createJob = async (req, res) => {
 exports.getJobs = async (req, res) => {
   try {
     // بناء نظام فلاتر للبحث المتقدم
-    const { search, type, workPlace, workLevel, limit, country, minSalary, maxSalary } = req.query;
+    const { search, type, workPlace, workLevel, limit, page, country, minSalary, maxSalary } = req.query;
     
     // افتراضياً نجلب الوظائف المفتوحة فقط
     let query = { status: 'Open' };
 
     // فلتر البحث بالنص (عنوان / وصف / موقع / متطلبات / مسؤوليات)
     if (search && String(search).trim()) {
-      const esc = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const esc = escapeRegex(String(search).trim());
       query.$or = [
         { title: { $regex: esc, $options: 'i' } },
         { description: { $regex: esc, $options: 'i' } },
@@ -78,7 +80,7 @@ exports.getJobs = async (req, res) => {
     if (type) query.type = type;
     if (workPlace) query.workPlace = workPlace;
     if (workLevel) query.workLevel = workLevel;
-    if (country) query.location = { $regex: country, $options: 'i' };
+    if (country) query.location = { $regex: escapeRegex(country), $options: 'i' };
 
     // فلتر نطاق الراتب
     if (minSalary || maxSalary) {
@@ -89,21 +91,28 @@ exports.getJobs = async (req, res) => {
     }
 
     // عدد النتائج المطلوبة (الافتراضي 10)
-    const resultLimit = parseInt(limit) || 10;
+    const resultLimit = Math.min(parseInt(limit) || 10, 50);
+    const resultPage = Math.max(parseInt(page) || 1, 1);
 
-    // جلب الوظائف وترتيبها من الأحدث للأقدم
+    const total = await Job.countDocuments(query);
+
+    // جلب الوظائف وترتيبها من الأحدث للأقدم مع ترقيم صفحات حقيقي
     const jobs = await Job.find(query)
       .populate('company', 'name logo location') // جلب بيانات الشركة الأساسية مع الوظيفة
       .sort({ createdAt: -1 })
+      .skip((resultPage - 1) * resultLimit)
       .limit(resultLimit);
 
     res.status(200).json({ 
-      success: true, 
+      success: true,
+      total,
+      page: resultPage,
+      pages: Math.max(Math.ceil(total / resultLimit), 1),
       count: jobs.length, 
       data: jobs 
     });
   } catch (error) {
-    console.error('Get Jobs Error:', error.message);
+    console.error('Get Jobs Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الوظائف' });
   }
 };
@@ -135,7 +144,7 @@ exports.getJobById = async (req, res) => {
       data: job
     });
   } catch (error) {
-    console.error('Get Job By Id Error:', error.message);
+    console.error('Get Job By Id Error:', sanitizeError(error));
     if (error.kind === 'ObjectId') {
       return res.status(404).json({ success: false, message: 'الوظيفة غير موجودة' });
     }
@@ -196,7 +205,7 @@ exports.applyForJob = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Apply Job Error:', error.message);
+    console.error('Apply Job Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء التقديم على الوظيفة' });
   }
 };
@@ -240,7 +249,7 @@ exports.getJobApplicants = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get Applicants Error:', error.message);
+    console.error('Get Applicants Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب المتقدمين' });
   }
 };
@@ -293,7 +302,7 @@ exports.updateApplicationStatus = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update Application Status Error:', error.message);
+    console.error('Update Application Status Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تحديث حالة الطلب' });
   }
 };
@@ -323,7 +332,7 @@ exports.getMyApplications = async (req, res) => {
       data: applications
     });
   } catch (error) {
-    console.error('Get My Applications Error:', error.message);
+    console.error('Get My Applications Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب طلباتك' });
   }
 };
@@ -373,7 +382,7 @@ exports.updateJobStatus = async (req, res) => {
       data: job
     });
   } catch (error) {
-    console.error('Update Job Status Error:', error.message);
+    console.error('Update Job Status Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تحديث حالة الوظيفة' });
   }
 };

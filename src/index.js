@@ -7,6 +7,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const logger = require('./utils/logger');
+const { sanitizeError } = require('./utils/sanitizeError');
 
 // استدعاء دالة الاتصال بقاعدة البيانات
 const connectDB = require('./config/db');
@@ -100,9 +101,12 @@ app.use((req, res) => {
 
 // معالج الأخطاء العام - يسجل أي خطأ في logs/errors.log
 app.use((err, req, res, next) => {
-  logger.error(`UNHANDLED ERROR on ${req.method} ${req.originalUrl} IP=${req.ip}`, err);
+  const safeMessage = sanitizeError(err);
+  logger.error(
+    `UNHANDLED ERROR on ${req.method} ${req.originalUrl} IP=${req.ip}: ${safeMessage}`,
+  );
   if (res.headersSent) return next(err);
-  res.status(err.status || 500).json({ success: false, message: err.message || 'حدث خطأ في الخادم' });
+  res.status(err.status || 500).json({ success: false, message: safeMessage });
 });
 
 // تحديد المنفذ من المتغيرات أو استخدام 3001 كاحتياطي

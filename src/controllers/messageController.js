@@ -93,7 +93,7 @@ exports.getMessages = async (req, res) => {
       { isRead: true }
     );
 
-    res.status(200).json({ success: true, data: messages.reverse() });
+    res.status(200).json({ success: true, data: messages });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب الرسائل' });
   }

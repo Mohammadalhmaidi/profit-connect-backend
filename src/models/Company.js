@@ -10,12 +10,12 @@ const companySchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      required: [true, 'وصف الشركة مطلوب']
+      default: ''
       // يمكنك إضافة maxlength هنا إذا أردت الحد من طول الوصف
     },
     industry: {
       type: String,
-      required: [true, 'مجال الشركة مطلوب (مثال: تكنولوجيا، صحة، إلخ)']
+      default: ''
     },
     location: {
       country: {

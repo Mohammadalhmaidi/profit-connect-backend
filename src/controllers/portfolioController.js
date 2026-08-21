@@ -6,6 +6,7 @@ const { evaluateContent } = require('../services/aiEvaluationService');
 const { applyWarning } = require('../services/moderationService');
 const { buildPortfolioMediaUrl, deletePortfolioMedia } = require('../utils/portfolioStorage');
 const { sanitizePostContent } = require('../utils/sanitizeContent');
+const { sanitizeError } = require('../utils/sanitizeError');
 
 const isValidId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -90,7 +91,7 @@ exports.createItem = async (req, res) => {
             await RScoreService.applyScore(req.user._id, 'ADD_PORTFOLIO_ITEM', `عمل معرض جديد: ${score} نقاط`, score);
           }
         } catch (e) {
-          console.error('[Portfolio AI Error]:', e.message);
+          console.error('[Portfolio AI Error]:', sanitizeError(e));
         }
       });
     }
@@ -98,7 +99,7 @@ exports.createItem = async (req, res) => {
     const populated = await PortfolioItem.findById(newItem._id).populate('user', 'profile.firstName profile.lastName profile.avatar profile.headline');
     res.status(201).json({ success: true, message: 'تمت إضافة العمل إلى معرضك', data: populated });
   } catch (error) {
-    console.error('Create Portfolio Error:', error.message);
+    console.error('Create Portfolio Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء إضافة العمل' });
   }
 };
@@ -295,7 +296,7 @@ exports.updateItem = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم تعديل العمل بنجاح', data: updated });
   } catch (error) {
-    console.error('Update Portfolio Error:', error.message);
+    console.error('Update Portfolio Error:', sanitizeError(error));
     res.status(500).json({ success: false, message: 'حدث خطأ أثناء تعديل العمل' });
   }
 };

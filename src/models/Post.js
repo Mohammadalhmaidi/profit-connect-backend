@@ -26,6 +26,23 @@ const postSchema = new mongoose.Schema(
       enum: ['public', 'private'],
       default: 'public'
     },
+    hashtags: {
+      type: [String],
+      default: []
+    },
+    postType: {
+      type: String,
+      enum: ['general', 'hiring', 'project', 'question', 'announcement'],
+      default: 'general'
+    },
+    budget: {
+      type: Number,
+      default: null
+    },
+    deadline: {
+      type: Date,
+      default: null
+    },
     // مصفوفة تحتوي على معرّفات (IDs) الأشخاص الذين أعجبوا بالمنشور
     likes: [
       {

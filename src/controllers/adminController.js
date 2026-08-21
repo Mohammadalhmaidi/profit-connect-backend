@@ -1,6 +1,7 @@
 const Company = require('../models/Company');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const { escapeRegex } = require('../utils/regex');
 
 // أداة للتحقق من صحة معرّف ObjectId
 const isValidId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
@@ -58,11 +59,12 @@ exports.getUsers = async (req, res) => {
     if (req.query.role) filter.role = req.query.role;
     if (req.query.status) filter.status = req.query.status;
     if (req.query.search) {
+      const search = escapeRegex(req.query.search);
       filter.$or = [
-        { email: { $regex: req.query.search, $options: 'i' } },
-        { username: { $regex: req.query.search, $options: 'i' } },
-        { 'profile.firstName': { $regex: req.query.search, $options: 'i' } },
-        { 'profile.lastName': { $regex: req.query.search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } },
+        { 'profile.firstName': { $regex: search, $options: 'i' } },
+        { 'profile.lastName': { $regex: search, $options: 'i' } },
       ];
     }
 
@@ -217,7 +219,7 @@ exports.getCompanies = async (req, res) => {
   try {
     const filter = {};
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.search) filter.name = { $regex: req.query.search, $options: 'i' };
+    if (req.query.search) filter.name = { $regex: escapeRegex(req.query.search), $options: 'i' };
 
     const companies = await Company.find(filter)
       .populate('owner', 'profile.firstName profile.lastName email username')

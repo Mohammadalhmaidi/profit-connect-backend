@@ -1,6 +1,7 @@
 const { OpenAI } = require('openai');
 const RScoreService = require('./rScoreService');
 const { stripHtml } = require('../utils/sanitizeContent');
+const { sanitizeError } = require('../utils/sanitizeError');
 
 const localAI = new OpenAI({
   baseURL: process.env.LM_STUDIO_BASE_URL || 'http://127.0.0.1:1234/v1',
@@ -41,7 +42,7 @@ const callAI = async (messages, options = {}) => {
       return completion.choices[0].message.content.trim();
     } catch (error) {
       lastError = error;
-      console.warn(`[AI] ${name} failed: ${error.message}`);
+      console.warn(`[AI] ${name} failed: ${sanitizeError(error)}`);
     } finally {
       clearTimeout(timeout);
     }
@@ -84,7 +85,7 @@ const evaluateContent = async (content) => {
 
     return score;
   } catch (error) {
-    console.error('[AI Evaluation Error]:', error.message);
+    console.error('[AI Evaluation Error]:', sanitizeError(error));
     return 1;
   }
 };
@@ -112,7 +113,7 @@ const detectAIGenerated = async (content) => {
 
     return Math.round(score);
   } catch (error) {
-    console.error('[AI Detect Error]:', error.message);
+    console.error('[AI Detect Error]:', sanitizeError(error));
     return null;
   }
 };
@@ -128,7 +129,7 @@ const processDynamicScoring = (userId, content, actionKey) => {
         await RScoreService.applyScore(userId, actionKey, `جودة المحتوى: ${score} نقاط`, score);
       }
     } catch (error) {
-      console.error('[Background Task Error]:', error.message);
+      console.error('[Background Task Error]:', sanitizeError(error));
     }
   });
 };
@@ -153,7 +154,7 @@ const evaluateWithContext = async (content, systemPrompt) => {
 
     return score;
   } catch (error) {
-    console.error('[AI Context Evaluation Error]:', error.message);
+    console.error('[AI Context Evaluation Error]:', sanitizeError(error));
     return 1;
   }
 };
@@ -186,7 +187,7 @@ Output ONLY the corrected and improved text in the same language as the input, n
     console.log('[Improve Raw Response]:', improved);
     return improved;
   } catch (error) {
-    console.error('[Improve Error]:', error.message);
+    console.error('[Improve Error]:', sanitizeError(error));
     throw error;
   }
 };
@@ -213,7 +214,7 @@ Output ONLY the translated text, no explanations.`,
     console.log('[Translate Raw Response]:', translated);
     return translated;
   } catch (error) {
-    console.error('[Translate Error]:', error.message);
+    console.error('[Translate Error]:', sanitizeError(error));
     throw error;
   }
 };
